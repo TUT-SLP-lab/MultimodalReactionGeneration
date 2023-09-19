@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  nemo_contailar:
+    container_name: mrg
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    shm_size: "32gb"
+    environment:
+      - PYTHONPATH=/opt/ml
+    ports:
+      - 10028:10028
+    volumes:
+      - /mnt/t4:/mnt/t4
+      - /home/mikawa/empath/intern:/home/mikawa/empath/intern
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: [ '0' ]
+              capabilities: [ gpu ]
+    stdin_open: true
+    tty: true
