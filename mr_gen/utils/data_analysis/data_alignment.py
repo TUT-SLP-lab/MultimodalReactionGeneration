@@ -75,8 +75,9 @@ def make_grid_single(grid_size, target0: ndarray) -> ndarray:
     grid0 = shaping_grid(grid_size, target0)
 
     grid0[np.abs(grid0) < 0.1] = 0
-    grid0: ndarray = np.mean(np.abs(grid0), axis=-1)
-    grid0 /= max(grid0)
+    grid0: ndarray = np.sqrt(np.mean(np.square(grid0), axis=-1))
+    grid0 = 20 * np.log10(grid0)
+    grid0 /= np.mean(grid0)
 
     return grid0
 

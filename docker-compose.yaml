@@ -1,7 +1,7 @@
 version: "3.9"
 services:
-  nemo_contailar:
-    container_name: mrg
+  multi-modal-reaction-generation:
+    container_name: mr-gen
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -11,8 +11,9 @@ services:
     ports:
       - 10028:10028
     volumes:
-      - /mnt/t4:/mnt/t4
-      - /home/mikawa/empath/intern:/home/mikawa/empath/intern
+      # - /mnt/t4:/mnt/t4
+      # - /home/mikawa/empath/intern:/home/mikawa/empath/intern
+      - ./:/home/MultimodalReactionGeneration
     deploy:
       resources:
         reservations:
