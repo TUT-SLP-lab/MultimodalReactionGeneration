@@ -285,7 +285,9 @@ def process():
     job_num = 8
     arg_set = []
 
-    for dirc in os.listdir(_args.target):
+    total_times = 0.0
+
+    for dirc in tqdm(os.listdir(_args.target), desc="initialize output site"):
         dpath = os.path.join(_args.target, dirc)
         out_dpath = os.path.join(_args.output, dirc)
         arg_dict = {
@@ -305,6 +307,8 @@ def process():
 
             if mem[-3:] == "m4a":
                 arg_set[-1]["target0"] = fpath
+                dt = load_m4a(fpath)
+                total_times += len(dt) / FS
             elif mem[-3:] == "wav":
                 if arg_set[-1]["target1"] is None:
                     arg_set[-1]["target1"] = fpath
@@ -315,12 +319,31 @@ def process():
             else:
                 print("warn :", fpath)
 
+    print("Data Amount (before Time-Shift-Modification)")
+    print(round(total_times, 2), "[s]")
+    print(round(total_times / 3600, 2), "[h]")
+
     for step in range(0, len(arg_set), job_num):
-        # print(step_arg["out_site"])
         Parallel(n_jobs=job_num, verbose=0)(
             [delayed(alignment)(**arg_set[step + i]) for i in range(job_num)]
         )
-        # alignment(**step_arg)
+
+    total_times = 0
+    for dirc in tqdm(os.listdir(_args.target), desc="initialize output site"):
+        dpath = os.path.join(_args.target, dirc)
+        for mem in os.listdir(dpath):
+            fpath = os.path.join(dpath, mem)
+
+            if mem[-3:] == "wav":
+                dt = load_wav(fpath)
+                total_times += len(dt) / FS
+                break
+            else:
+                continue
+
+    print("Data Amount (before Time-Shift-Modification)")
+    print(round(total_times, 2), "[s]")
+    print(round(total_times / 3600, 2), "[h]")
 
 
 if __name__ == "__main__":
