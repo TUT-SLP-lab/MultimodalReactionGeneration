@@ -1,6 +1,7 @@
 version: "3.9"
 services:
-  multi-modal-reaction-generation:
+  multi_modal_reaction_generation:
+    image: multi_modal_reaction_generation
     container_name: mr-gen
     build:
       context: .
@@ -14,6 +15,8 @@ services:
       # - /mnt/t4:/mnt/t4
       # - /home/mikawa/empath/intern:/home/mikawa/empath/intern
       - ./:/home/MultimodalReactionGeneration
+    command: bash -c "bash entrypoint.sh && /bin/bash"
+    entrypoint: sh docker-entry.sh
     deploy:
       resources:
         reservations:
