@@ -12,10 +12,7 @@ services:
     ports:
       - 10028:10028
     volumes:
-      # - /mnt/t4:/mnt/t4
-      # - /home/mikawa/empath/intern:/home/mikawa/empath/intern
       - ./:/home/MultimodalReactionGeneration
-    command: bash -c "bash entrypoint.sh && /bin/bash"
     entrypoint: sh docker-entry.sh
     deploy:
       resources:

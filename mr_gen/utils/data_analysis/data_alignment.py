@@ -24,6 +24,7 @@ CTYPE = "NONE"
 CNAME = "not compressed"
 
 WINDOW_SIZE = 5  # [s]
+STD_SP = 1e-4  # [Pa] standard sound pressure
 
 
 def set_args(parser: argparse.ArgumentParser):
@@ -74,9 +75,9 @@ def shaping_grid(grid_size, target0: ndarray) -> ndarray:
 def make_grid_single(grid_size, target0: ndarray) -> ndarray:
     grid0 = shaping_grid(grid_size, target0)
 
-    grid0[np.abs(grid0) < 0.1] = 0
+    grid0[np.abs(grid0) < 0.1] = STD_SP
     grid0: ndarray = np.sqrt(np.mean(np.square(grid0), axis=-1))
-    grid0 = 20 * np.log10(grid0)
+    grid0 = 20 * np.log10(grid0 / STD_SP)
     grid0 /= np.mean(grid0)
 
     return grid0
@@ -324,10 +325,12 @@ def process():
     print(round(total_times, 2), "[s]")
     print(round(total_times / 3600, 2), "[h]")
 
-    for step in range(0, len(arg_set), job_num):
-        Parallel(n_jobs=job_num, verbose=0)(
-            [delayed(alignment)(**arg_set[step + i]) for i in range(job_num)]
-        )
+    # for step in range(0, len(arg_set), job_num):
+    #     Parallel(n_jobs=job_num, verbose=0)(
+    #         [delayed(alignment)(**arg_set[step + i]) for i in range(job_num)]
+    #     )
+    for step_set in arg_set:
+        alignment(**step_set)
 
     total_times = 0
     for dirc in tqdm(os.listdir(_args.target), desc="initialize output site"):

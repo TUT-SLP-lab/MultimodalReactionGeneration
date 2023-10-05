@@ -1,6 +1,6 @@
 """Initialize published package."""
 
-from mr_gen import scripts
+# from mr_gen import scripts
 from mr_gen import utils
 
 __copyright__ = "Copyright (C) 2023 Tamon Mikawa"

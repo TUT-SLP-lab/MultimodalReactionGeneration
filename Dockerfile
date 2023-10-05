@@ -1,5 +1,13 @@
 ARG BASE_IMAGE=nvcr.io/nvidia/pytorch:23.04-py3
+# ARG FFMPEG_IMAGE=jrottenberg/ffmpeg
 FROM ${BASE_IMAGE}
+# FROM ${FFMPEG_IMAGE}
+
+# for installing ffmpeg into docker container (for cancel choice timezone)
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get -y install ffmpeg
 
 
 RUN pip install --upgrade pip && \
@@ -10,6 +18,7 @@ RUN pip install --upgrade pip && \
     matplotlib==3.7.3 \
     numpy==1.24.4 \
     opencv-python==4.8.0.74 \
+    opencv-contrib-python==4.8.0.74 \
     soundfile==0.12.1
 
 WORKDIR /home/MultimodalReactionGeneration
