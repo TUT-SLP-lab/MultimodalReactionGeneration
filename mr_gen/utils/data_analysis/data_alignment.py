@@ -11,8 +11,6 @@ from joblib import Parallel, delayed
 
 from mr_gen.utils.video import Video
 
-# from matplotlib import pyplot as plt
-
 
 N_BYTE = 2
 SCALE = 1.0 / float(1 << ((8 * N_BYTE) - 1))
@@ -289,7 +287,10 @@ def process():
 
     total_times = 0.0
 
-    for dirc in tqdm(os.listdir(_args.target), desc="initialize output site"):
+    dircs: list = os.listdir(_args.target)
+    dircs.sort()
+
+    for dirc in tqdm(dircs, desc="initialize output site"):
         dpath = os.path.join(_args.target, dirc)
         out_dpath = os.path.join(_args.output, dirc)
         arg_dict = {
@@ -309,11 +310,11 @@ def process():
 
             if mem[-3:] == "m4a":
                 arg_set[-1]["target0"] = fpath
-                dt = load_m4a(fpath)
-                total_times += len(dt) / FS
             elif mem[-3:] == "wav":
                 if arg_set[-1]["target1"] is None:
                     arg_set[-1]["target1"] = fpath
+                    dt = load_wav(fpath)
+                    total_times += len(dt) / FS
                 else:
                     arg_set[-1]["target2"] = fpath
             elif mem[-3:] == "mp4":
@@ -325,15 +326,14 @@ def process():
     print(round(total_times, 2), "[s]")
     print(round(total_times / 3600, 2), "[h]")
 
-    # for step in range(0, len(arg_set), job_num):
-    #     Parallel(n_jobs=job_num, verbose=0)(
-    #         [delayed(alignment)(**arg_set[step + i]) for i in range(job_num)]
-    #     )
-    for step_set in arg_set:
-        alignment(**step_set)
+    for step in range(0, len(arg_set), job_num):
+        print(step, "/", len(arg_set))
+        Parallel(n_jobs=job_num, verbose=0)(
+            [delayed(alignment)(**arg_set[step + i]) for i in range(job_num)]
+        )
 
     total_times = 0
-    for dirc in tqdm(os.listdir(_args.target), desc="initialize output site"):
+    for dirc in tqdm(os.listdir(_args.target), desc="calc total time"):
         dpath = os.path.join(_args.target, dirc)
         for mem in os.listdir(dpath):
             fpath = os.path.join(dpath, mem)

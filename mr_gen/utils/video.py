@@ -4,12 +4,15 @@ import os
 import cv2
 from numpy import ndarray
 from tqdm import tqdm
+import warnings
 
 
 class Video:
     def __init__(self, video_path: str, codec: str = "mp4v") -> None:
         self.cap = cv2.VideoCapture(video_path)
         self.fourcc = cv2.VideoWriter_fourcc(*codec)
+        if not self.cap.isOpened():
+            warnings.warn("Video File is not opened.")
 
         self.path = video_path
         self.name = os.path.basename(video_path)
