@@ -28,6 +28,7 @@ STD_SP = 1e-4  # [Pa] standard sound pressure
 def set_args(parser: argparse.ArgumentParser):
     parser.add_argument("--target", type=str, required=True)
     parser.add_argument("--output", type=str, required=True)
+    parser.add_argument("--procnum", type=int, default=1)
     parser.add_argument("--overwrite", action="store_true", default=False)
 
 
@@ -164,7 +165,8 @@ def grid_matching(
     #############################################################
 
     area_start = max(total_shift, 0)
-    candidate_area = new_trg1[area_start : len(new_trg0)].copy()
+    area_stop = len(new_trg0) - total_shift if total_shift < 0 else len(new_trg0)
+    candidate_area = new_trg1[area_start:area_stop].copy()
 
     windows = shaping_grid(w_size, candidate_area)
     windows[np.abs(windows) < 0.1] = 0
@@ -183,7 +185,30 @@ def get_time_shift(target0: ndarray, target1: ndarray, use_tqdm=False) -> int:
     prob = int(FS // div[1] * 10)
 
     obj = target1[obj_st:obj_ed].copy()
-    trg = target0[trg_st - prob : trg_ed + prob].copy()
+    _trg = target0[trg_st - prob : trg_ed + prob].copy()
+
+    trg_size = obj_ed - obj_st + 2 * prob
+
+    def form_trg():
+        # if len(_trg) * 2 < trg_size:
+        #     shift_width = trg_size // 2 - len(_trg)
+        #     new_obj_st = obj_st - shift_width
+        #     obj = target1[new_obj_st : obj_ed - shift_width].copy()
+        #     _trg = target0[trg_st - prob : trg_ed + prob].copy()
+
+        trg = np.zeros(trg_size)
+        if trg_st - prob < 0:
+            start = abs(trg_st - prob)
+            trg[start : start + len(_trg)] = _trg
+        elif trg_ed + prob > len(target0):
+            end = (trg_ed + prob) - len(target0)
+            trg[-end - len(_trg) : -end] = _trg
+        else:
+            trg[:] = _trg
+
+        return trg, obj
+
+    trg, obj = form_trg()
 
     obj /= max(obj)
     trg /= max(trg)
@@ -195,8 +220,19 @@ def get_time_shift(target0: ndarray, target1: ndarray, use_tqdm=False) -> int:
     else:
         iterator = range(len(trg) - len(obj))
 
+    # skp = False
+
     for t in iterator:
+        # if not skp:
+        #     print("#" * 10)
+        #     print(trg[t : t + len(obj)])
+        #     print(obj)
+        #     print(len(trg), len(obj))
+        #     r = input(len(trg[t : t + len(obj)]))
+        #     skp = r == "g"
         res.append(np.dot(trg[t : t + len(obj)], obj))
+    # print(skp)
+    # print(res, len(trg), len(obj))
     shift += np.argmax(res) - prob
 
     return shift
@@ -278,11 +314,11 @@ def process():
             shutil.rmtree(_args.output)
             os.mkdir(_args.output)
         else:
-            raise ValueError("output path directory is already exists.")
+            pass
     else:
         os.mkdir(_args.output)
 
-    job_num = 8
+    job_num = _args.procnum
     arg_set = []
 
     total_times = 0.0
@@ -293,6 +329,13 @@ def process():
     for dirc in tqdm(dircs, desc="initialize output site"):
         dpath = os.path.join(_args.target, dirc)
         out_dpath = os.path.join(_args.output, dirc)
+
+        if os.path.exists(out_dpath):
+            if os.listdir(out_dpath) and not _args.overwrite:
+                continue
+            else:
+                shutil.rmtree(out_dpath)
+
         arg_dict = {
             "target0": None,
             "target1": None,
@@ -327,10 +370,13 @@ def process():
     print(round(total_times / 3600, 2), "[h]")
 
     for step in range(0, len(arg_set), job_num):
-        print(step, "/", len(arg_set))
-        Parallel(n_jobs=job_num, verbose=0)(
-            [delayed(alignment)(**arg_set[step + i]) for i in range(job_num)]
+        print(step, "/", len(arg_set), "[step =", job_num, "]")
+        pnum = min(job_num, len(arg_set) - step)
+        Parallel(n_jobs=pnum, verbose=0)(
+            [delayed(alignment)(**arg_set[step + i]) for i in range(pnum)]
         )
+    # for sta in arg_set:
+    #     alignment(**sta)
 
     total_times = 0
     for dirc in tqdm(os.listdir(_args.target), desc="calc total time"):
