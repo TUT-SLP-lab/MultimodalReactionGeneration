@@ -238,7 +238,7 @@ class FeatureExtractor:
             # 本実装では捨てずに用いている
             # spectrum = spectrum[: int(self.fft_size / 2) + 1]
 
-            spectrum = 20 * np.log10(np.abs(spectrum) ** 2)
+            spectrum = 20 * np.log10(np.abs(spectrum) / 2e-5)
 
             spec_features[frame] = spectrum
 
