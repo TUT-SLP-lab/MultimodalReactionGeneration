@@ -10,9 +10,9 @@ from mr_gen.utils.video_analysis import HeadPoseEstimation
 def set_args(parser: argparse.ArgumentParser):
     parser.add_argument("--target", type=str, required=True)
     parser.add_argument("--output", type=str, required=True)
-    parser.add_argument("--procnum", type=int, default=1)
-    parser.add_argument("--estimation-fps", type=float, default=25.0)
-    parser.add_argument("--overwrite", action="store_true", default=False)
+    parser.add_argument("--pnum", type=int, default=1)
+    parser.add_argument("--est-fps", type=float, default=25.0)
+    parser.add_argument("--redo", action="store_true", default=False)
 
 
 def get_args():
@@ -37,9 +37,10 @@ def _video_div(trg_video_path: str, use_tq: bool = False) -> None:
         vw_comp = open_video(comp_video_path, mode="w", fps=fps)
         vw_host = open_video(host_video_path, mode="w", fps=fps)
 
-        iterator = tqdm(vr, leave=False) if use_tq else vr
+        if use_tq:
+            vr = tqdm(vr, leave=False, position=1)
 
-        for frame in iterator:
+        for frame in vr:
             comp_frame, *_, host_frame = np.split(frame, [half, -half], axis=1)
             vw_comp.write(comp_frame)
             vw_host.write(host_frame)
@@ -49,20 +50,15 @@ def _video_div(trg_video_path: str, use_tq: bool = False) -> None:
 
 
 def video_analysis(
-    target: str,
-    output: str,
-    procnum: int = 1,
-    est_fps: float = 12.5,
-    overwrite: bool = False,
-    **_
+    target: str, output: str, pnum=1, est_fps=12.5, redo=False, position=0, **_
 ):
     if not os.path.isdir(output):
         os.mkdir(output)
 
     trg_list = mp4_collector(target_path=target, name="movie")
-    trg_list = [(path, i % procnum == 0) for i, path in enumerate(trg_list)]
+    trg_list = [(path, i % pnum == 0) for i, path in enumerate(trg_list)]
     parallel_luncher(
-        job=_video_div, arg_list=trg_list, pnum=procnum, unpack=True, pn="Div Video"
+        _video_div, trg_list, pnum, unpack=True, desc="Div video", position=position
     )
 
     # apply facemesh for video
@@ -76,8 +72,8 @@ def video_analysis(
         if not os.path.isdir(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
 
-    estimater = HeadPoseEstimation(estimate_fps=est_fps, redo=overwrite)
-    output_path_list = estimater(io_path_list, pnum=procnum, visualize="sample")
+    estimater = HeadPoseEstimation(estimate_fps=est_fps, redo=redo)
+    output_path_list = estimater(io_path_list, pnum=pnum, visualize="sample")
 
     return output_path_list
 

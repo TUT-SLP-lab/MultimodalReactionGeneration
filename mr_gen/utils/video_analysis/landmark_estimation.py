@@ -60,6 +60,7 @@ class HeadPoseEstimation:
         io_path_list: List[Tuple[str, str]],
         pnum: int = 1,
         visualize: VisualizeMode = "none",
+        **kwargs,
     ) -> List[str]:
         """Apply face-mesh to video.
         Args:
@@ -85,7 +86,9 @@ class HeadPoseEstimation:
 
             all_args.append([video_path, output_path, i % pnum == 0, visualize_mode])
 
-        results = parallel_luncher(self.apply_facemesh, all_args, pnum, unpack=True)
+        results = parallel_luncher(
+            self.apply_facemesh, all_args, pnum, unpack=True, **kwargs
+        )
 
         return results
 
@@ -117,7 +120,7 @@ class HeadPoseEstimation:
             visualize_path = output_path.rsplit(".", maxsplit=1)[0] + "_visualized.mp4"
             vw = open_video(visualize_path, mode="w", fps=self.estimate_fps)
 
-        iterator = tqdm(vr, leave=False, desc="Est Lmark") if use_tq else vr
+        iterator = tqdm(vr, leave=False, desc="Est Lmark", position=1) if use_tq else vr
         for i, frame in enumerate(iterator):
             if i % skip_frame != 0:
                 continue
