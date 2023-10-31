@@ -160,3 +160,25 @@ cython_debug/
 #.idea/
 
 *.png
+pyannote.env
+.vscode
+
+*/**/*.wav
+*/**/*.mp4
+*/**/*.jpg
+*/**/*.png
+*/**/*.json
+*/**/*.txt
+*/**/*.csv
+*/**/*.tsv
+*/**/*.pkl
+*/**/*.npy
+*/**/*.npz
+*/**/*.pth
+*/**/*.pt
+*/**/*.ckpt
+*/**/*.ckpt.*
+*/**/*.ckpt-*
+*/**/*.ckpt.*
+*/**/*.ckpt-*
+*/

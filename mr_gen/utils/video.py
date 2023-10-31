@@ -1,126 +1,278 @@
-from typing import List
-import math
+"""
+(Writer):   _VideoB -> VideoIOBase -> _VideoWB -> VideoWriter
+(Reader):   _VideoB -> VideoIOBase -> _VideoRB -> _VideoRIdx -> VideoReader
+"""
+
+from __future__ import annotations
 import os
+from abc import ABC, abstractmethod
+import warnings
+from typing import List, Optional, Union, Tuple, overload
+from typing_extensions import Literal, TypeAlias
 import cv2
 from numpy import ndarray
-from tqdm import tqdm
-import warnings
 
 
-class Video:
-    def __init__(self, video_path: str, codec: str = "mp4v") -> None:
-        self.cap = cv2.VideoCapture(video_path)
-        self.fourcc = cv2.VideoWriter_fourcc(*codec)
-        if not self.cap.isOpened():
-            warnings.warn("Video File is not opened.")
+VideoIOMode: TypeAlias = Literal["w", "r"]
 
-        self.path = video_path
-        self.name = os.path.basename(video_path)
-        self.codec = codec
+ATTR_ALL = [
+    "_set_writer",
+    "_write_frame",
+    "write",
+    "read",
+    "trime_time",
+    "close",
+    "__getitem__",
+    "__len__",
+    "__iter__",
+    "__next__",
+    "_reset",
+    "_set_iter",
+]
 
-        self.cap_width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.cap_height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-        self.cap_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.fps = self.cap.get(cv2.CAP_PROP_FPS)
+class _VideoB(ABC):
+    def __init__(self) -> None:
+        pass
 
-        self.writer = None
+    def _set_writer(self, _size_wh: Tuple[int, int]) -> None:
+        raise AttributeError("This instance has no attribute _set_writer().")
 
-        self.step = 1
+    def _write_frame(self, _frame: ndarray) -> None:
+        raise AttributeError("This instance has no attribute _write_frame().")
 
-        self.current_idx = 0
+    def write(self, _frames: Union[ndarray, List[ndarray], _VideoRIdx]) -> None:
+        raise AttributeError("This instance has no attribute write().")
 
-        self.length = None
-        self.__len__()
+    def read(self) -> ndarray:
+        raise AttributeError("This instance has no attribute read().")
 
-    def __str__(self) -> str:
-        return f"all frame : {self.cap_frames}, fps : {round(self.fps, 2)}, time : {round(self.cap_frames/self.fps, 2)}"
+    def trime_time(self, _start: float, _stop: float) -> _VideoRIdx:
+        raise AttributeError("This instance has no attribute trime_time().")
 
-    def __getitem__(self, idx):
-        pos = cv2.CAP_PROP_POS_FRAMES
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-        ret, frame = self.cap.read()
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
+    @abstractmethod
+    def close(self) -> None:
+        pass
 
-        return ret, frame
+    def __getitem__(self, idx) -> Union[ndarray, _VideoRIdx]:
+        raise AttributeError("This instance has no attribute __getitem__().")
 
     def __len__(self) -> int:
-        if self.length is None:
-            self.length = math.ceil(self.cap_frames / self.step)
-        return self.length
+        raise AttributeError("This instance has no attribute __len__().")
 
-    def __iter__(self):
+    def __iter__(self) -> _VideoRIdx:
+        raise AttributeError("This instance has no attribute __iter__().")
+
+    def __next__(self) -> ndarray:
+        raise AttributeError("This instance has no attribute __next__().")
+
+    def _reset(self) -> None:
+        raise AttributeError("This instance has no attribute _reset().")
+
+    def _set_iter(self, _sss: slice) -> _VideoRIdx:
+        raise AttributeError("This instance has no attribute _set_iter().")
+
+
+class VideoIOBase(_VideoB):
+    def __init__(self, path: str, codec: str = "mp4v") -> None:
+        super().__init__()
+
+        self._fourcc = cv2.VideoWriter_fourcc(*codec)  # type: ignore
+        self._codec = codec
+
+        self._path = path
+        self._name = os.path.basename(path)
+
+        self._cap_width: int = 0
+        self._cap_height: int = 0
+        self._cap_frames: int = 0
+        self._fps: float = 0.0
+
+    def get_cap_width(self):
+        return self._cap_width
+
+    def get_cap_height(self):
+        return self._cap_height
+
+    def get_cap_frames(self):
+        return self._cap_frames
+
+    def get_fps(self):
+        return self._fps
+
+    def get_path(self):
+        return self._path
+
+    def get_codec(self):
+        return self._codec
+
+    def __del__(self):
+        self.close()
+
+    def __enter__(self) -> VideoIOBase:
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+
+class _VideoWB(VideoIOBase):
+    def __init__(self, path: str, fps: float, codec: str = "mp4v", **_) -> None:
+        super().__init__(path, codec)
+
+        self._writer = None
+        self._fps = fps
+
+    def _set_writer(self, size_wh: Tuple[int, int]) -> None:
+        if self._writer is not None:
+            self.close()
+        self._cap_width, self._cap_height = size_wh
+        self._writer = cv2.VideoWriter(self._path, self._fourcc, self._fps, size_wh)
+
+    def _write_frame(self, frame: ndarray) -> None:
+        if self._writer is None:
+            raise ValueError("Writer is not set.")
+        self._writer.write(frame)
+
+    def close(self):
+        if self._writer is not None:
+            self._writer.release()
+        del self
+
+
+class VideoWriter(_VideoWB):
+    def write(self, frames: Union[ndarray, List[ndarray], _VideoRIdx]):
+        if isinstance(frames, ndarray):
+            frames = [frames]
+        if self._writer is None:
+            size_wh = (frames[0].shape[1], frames[0].shape[0])
+            self._set_writer(size_wh)
+        for frame in frames:
+            self._write_frame(frame)
+
+
+class _VideoRB(VideoIOBase):
+    def __init__(self, path: str, codec: str = "mp4v") -> None:
+        super().__init__(path, codec)
+
+        self._cap = cv2.VideoCapture(path)
+        if not self._cap.isOpened():
+            warnings.warn("Video File is not opened.")
+
+        self._cap_width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self._cap_height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        self._cap_frames = int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        self._fps = self._cap.get(cv2.CAP_PROP_FPS)
+
+    def close(self):
+        self._cap.release()
+        del self
+
+
+class _VideoRIdx(_VideoRB):
+    def __init__(self, path: str, codec: str = "mp4v", **kwargs) -> None:
+        super().__init__(path, codec)
+
+        self._current_idx = 0
+
+        self._step = kwargs.get("step", 1)
+        self._start = kwargs.get("start", 0)
+        self._stop = kwargs.get("stop", self._cap_frames)
+
+        # check args
+        if not (isinstance(self._step, int) or self._step is None):
+            raise ValueError("Invalid type of args: step")
+        if not (isinstance(self._start, int) or self._start is None):
+            raise ValueError("Invalid type of args: start")
+        if not (isinstance(self._stop, int) or self._stop is None):
+            raise ValueError("Invalid type of args: stop")
+        # overwrite args
+        if self._step is None:
+            self._step = 1
+        if self._start is None:
+            self._start = 0
+        if self._stop is None:
+            self._stop = self._cap_frames
+
+        self._length = self.__len__()
+
+    @overload
+    def __getitem__(self, idx: int) -> ndarray:
+        ...
+
+    @overload
+    def __getitem__(self, idx: slice) -> _VideoRIdx:
+        ...
+
+    def __getitem__(self, idx) -> Union[ndarray, _VideoRIdx]:
+        if isinstance(idx, int):
+            pos = cv2.CAP_PROP_POS_FRAMES
+            self._cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            _, frame = self._cap.read()
+            self._cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
+
+            return frame
+        elif isinstance(idx, slice):
+            return self._set_iter(idx)
+        else:
+            raise IndexError("Invalid index.")
+
+    def __len__(self) -> int:
+        length = self._stop - self._start
+        return length
+
+    def __iter__(self) -> _VideoRIdx:
         return self
 
     def __next__(self) -> ndarray:
-        if self.current_idx == self.length:
-            self.reset()
+        if self._current_idx == self._length + self._start:
+            self._reset()
             raise StopIteration
 
-        frame = self.cap.read()[1]
-        self.current_idx += 1
-        for _ in range(self.step - 1):
-            self.cap.read()
+        frame = self._cap.read()[1]
+        self._current_idx += self._step
+        if self._step > 1:
+            current_frame = self._start + self._current_idx
+            self._cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame)
         return frame
 
-    def reset(self):
-        self.current_idx = 0
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+    def _reset(self):
+        self._current_idx = self._start
+        self._cap.set(cv2.CAP_PROP_POS_FRAMES, self._start)
 
-    def info(self):
-        return [self.fourcc, self.cap_width, self.cap_height, self.fps, self.cap_frames]
-
-    def read(self) -> ndarray:
-        return self.cap.read()
-
-    def set_out_path(self, path: str):
-        self.writer = cv2.VideoWriter(
-            path, self.fourcc, self.fps, (self.cap_width, self.cap_height)
+    def _set_iter(self, sss: slice) -> _VideoRIdx:
+        return _VideoRIdx(
+            path=self._path,
+            codec=self._codec,
+            step=sss.step,
+            start=sss.start,
+            stop=sss.stop,
         )
 
-    def write(self, frames: List[ndarray]):
-        if isinstance(frames, ndarray):
-            frames = [frames]
 
-        for frame in frames:
-            self.writer.write(frame)
+class VideoReader(_VideoRIdx):
+    def read(self) -> ndarray:
+        return self._cap.read()[1]
 
-    def set_step(self, step):
-        self.step = step
+    def trime_time(self, start: float, stop: float) -> _VideoRIdx:
+        start_frame = int(self._fps * start)
+        stop_frame = int(self._fps * stop)
 
-    def close_writer(self):
-        self.writer.release()
+        return self.trime_frame(start_frame, stop_frame)
 
-    def trime_time(
-        self, start: float, stop: float, out: str, use_tqdm=False
-    ) -> List[ndarray]:
-        start_frame = int(self.fps * start)
-        stop_frame = int(self.fps * stop)
+    def trime_frame(self, start: int, stop: int) -> _VideoRIdx:
+        return self[start:stop:1]
 
-        return self.trime_frame(start_frame, stop_frame, out, use_tqdm)
 
-    def trime_frame(
-        self, start: int, stop: int, out: str, use_tqdm=False
-    ) -> List[ndarray]:
-        # resp = []
-        self.set_out_path(out)
-
-        pos = cv2.CAP_PROP_POS_FRAMES
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, start)
-
-        it = range(start, min(stop + 1, self.cap_frames))
-
-        if use_tqdm:
-            iterator = tqdm(it, desc="write-MP4")
-        else:
-            iterator = it
-
-        for _ in iterator:
-            _, frame = self.cap.read()
-            self.write(frame)
-            # resp.append(frame)
-
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
-        self.close_writer()
-
-        # return resp
+def open_video(
+    path: str, mode: VideoIOMode = "r", codec="mp4v", fps: Optional[float] = None
+) -> VideoIOBase:
+    if mode == "r":
+        return VideoReader(path, codec)
+    elif mode == "w":
+        if fps is None:
+            raise ValueError("when 'mode' is 'r', 'fps' must be specified.")
+        return VideoWriter(path, fps, codec)
+    else:
+        raise ValueError("'mode' must be 'r' or 'w'.")

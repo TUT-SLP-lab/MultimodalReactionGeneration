@@ -123,11 +123,6 @@ class FeatureExtractor:
         # waveformから，1フレーム分の波形を抽出する
         window = waveform[start_index : start_index + self.frame_size].copy()
 
-        ###########################
-        # org_window = window.copy()
-        # org_window -= np.mean(org_window)
-        ###########################
-
         # ディザリングを行う
         # (-dither_coef～dither_coefの一様乱数を加える)
         if self.dither_coef > 0:
@@ -162,10 +157,6 @@ class FeatureExtractor:
 
         return (window, log_power)
 
-        # org_window *= np.hamming(self.frame_size)
-
-        # return (org_window, log_power)
-
     def ComputeFBANK(self, waveform) -> Tuple[np.ndarray, np.ndarray]:
         """Compute mel filter bank features (FBANK)
         Output 1: fbank_features: Mel filter bank features
@@ -190,10 +181,6 @@ class FeatureExtractor:
 
             # 高速フーリエ変換(FFT)を実行
             spectrum = np.fft.rfft(window, n=self.fft_size)
-            # FFT結果の右半分(負の周波数成分)を取り除く
-            # ※Kaldiの実装ではナイキスト周波数成分(最後の+1)は捨てているが，
-            # 本実装では捨てずに用いている
-            # spectrum = spectrum[: int(self.fft_size / 2) + 1]
 
             # パワースペクトルを計算する
             spectrum = np.abs(spectrum) ** 2
@@ -233,10 +220,6 @@ class FeatureExtractor:
 
             # 高速フーリエ変換(FFT)を実行
             spectrum = np.fft.rfft(window, n=self.fft_size)
-            # FFT結果の右半分(負の周波数成分)を取り除く
-            # ※Kaldiの実装ではナイキスト周波数成分(最後の+1)は捨てているが，
-            # 本実装では捨てずに用いている
-            # spectrum = spectrum[: int(self.fft_size / 2) + 1]
 
             spectrum = 20 * np.log10(np.abs(spectrum) / 2e-5)
 
@@ -245,7 +228,7 @@ class FeatureExtractor:
             # 対数パワーの値をlog_powerに加える
             log_power[frame] = log_pow
 
-        return (spec_features, log_pow)
+        return (spec_features, log_power)
 
     def MakeDCTMatrix(self) -> np.ndarray:
         """Create a basis matrix for the Discrete Cosine Transform (DCT)"""

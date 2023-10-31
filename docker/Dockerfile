@@ -72,7 +72,10 @@ RUN pip install --upgrade pip && \
     numpy==1.24.4 \
     opencv-python==4.8.0.74 \
     opencv-contrib-python==4.8.0.74 \
-    soundfile==0.12.1
+    soundfile==0.12.1 \
+    mediapipe \
+    pyannote.audio \
+    pyworld 
 
 WORKDIR /home/MultimodalReactionGeneration
 CMD bash -c "npm start && /bin/bash"

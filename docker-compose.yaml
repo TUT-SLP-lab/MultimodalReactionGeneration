@@ -1,11 +1,13 @@
 version: "3.9"
 services:
   multi_modal_reaction_generation:
+    env_file:
+      - pyannote.env
     image: multi_modal_reaction_generation
     container_name: mr-gen
     build:
       context: .
-      dockerfile: ./Dockerfile
+      dockerfile: ./docker/Dockerfile
     shm_size: "32gb"
     environment:
       - PYTHONPATH=/opt/ml
@@ -13,6 +15,7 @@ services:
       - 10028:10028
     volumes:
       - ./:/home/MultimodalReactionGeneration
+      - ./docker/.ssh:/root/.ssh
     entrypoint: sh docker-entry.sh
     deploy:
       resources:

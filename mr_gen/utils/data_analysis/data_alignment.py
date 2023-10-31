@@ -9,7 +9,7 @@ from numpy import ndarray
 from tqdm import tqdm
 from joblib import Parallel, delayed
 
-from mr_gen.utils.video import Video
+from mr_gen.utils import open_video
 
 
 N_BYTE = 2
@@ -220,19 +220,8 @@ def get_time_shift(target0: ndarray, target1: ndarray, use_tqdm=False) -> int:
     else:
         iterator = range(len(trg) - len(obj))
 
-    # skp = False
-
     for t in iterator:
-        # if not skp:
-        #     print("#" * 10)
-        #     print(trg[t : t + len(obj)])
-        #     print(obj)
-        #     print(len(trg), len(obj))
-        #     r = input(len(trg[t : t + len(obj)]))
-        #     skp = r == "g"
         res.append(np.dot(trg[t : t + len(obj)], obj))
-    # print(skp)
-    # print(res, len(trg), len(obj))
     shift += np.argmax(res) - prob
 
     return shift
@@ -274,9 +263,11 @@ def alignment(
         len(org_wav2) - wav2_cut_f,
     )
 
-    start_time = wav0_cut_f / FS
-    stop_time = (wav0_cut_f + std_b) / FS
-    video = Video(mp4, codec="mp4v")
+    with open_video(mp4, mode="r", codec="mp4v") as vr:
+        start_time = wav0_cut_f / FS
+        stop_time = (wav0_cut_f + std_b) / FS
+        out_video = vr.trime_time(start_time, stop_time)
+        fps = vr.get_fps()
 
     formed_wav0 = org_wav0[wav0_cut_f : wav0_cut_f + std_b]
     formed_wav1 = org_wav1[wav1_cut_f : wav1_cut_f + std_b]
@@ -289,10 +280,11 @@ def alignment(
     out_wav1 = os.path.join(out_site, os.path.basename(target1))
     out_wav2 = os.path.join(out_site, os.path.basename(target2))
 
-    video.trime_time(start_time, stop_time, out_mp4, use_tqdm)
     output_wav(out_wav0, formed_wav0)
     output_wav(out_wav1, formed_wav1)
     output_wav(out_wav2, formed_wav2)
+    with open_video(out_mp4, mode="w", fps=fps) as vw:
+        vw.write(out_video)
 
 
 def output_wav(path: str, wav: ndarray):
@@ -306,7 +298,7 @@ def output_wav(path: str, wav: ndarray):
         wf.writeframes(wav.tobytes())
 
 
-def process():
+def data_alignment():
     _args = get_args()
 
     if os.path.isdir(_args.output):
@@ -375,8 +367,6 @@ def process():
         Parallel(n_jobs=pnum, verbose=0)(
             [delayed(alignment)(**arg_set[step + i]) for i in range(pnum)]
         )
-    # for sta in arg_set:
-    #     alignment(**sta)
 
     total_times = 0
     for dirc in tqdm(os.listdir(_args.target), desc="calc total time"):
@@ -397,4 +387,4 @@ def process():
 
 
 if __name__ == "__main__":
-    process()
+    data_alignment()
