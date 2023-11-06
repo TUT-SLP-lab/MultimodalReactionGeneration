@@ -26,7 +26,7 @@ class HeadMotionDataset(Dataset):
         jdic = self.data_list[index]
 
         fbank = self.audio_preprocessor(
-            jdic["audio_path"], jdic["audio"]["start"], jdic["audio"]["end"]
+            jdic["wav_file"], jdic["audio"]["start"], jdic["audio"]["end"]
         )
         motion_context = self.motion_preprocessor(jdic["head_dir"], **jdic["context"])
         motion_target = self.motion_preprocessor(jdic["head_dir"], **jdic["target"])
