@@ -7,7 +7,12 @@ from mr_gen.utils.tools.rotations import calc_R, matrix_to_angles
 
 class FaceAdapter:
     def __init__(
-        self, face: Iterable[NormalizedLandmarkList], img_h: int, img_w: int
+        self,
+        face: Iterable[NormalizedLandmarkList],
+        img_h: int,
+        img_w: int,
+        frame_no: int,
+        fps: float,
     ) -> None:
         if isinstance(next(iter(face)), NormalizedLandmarkList):
             raise ValueError("Invalid type of args: face")
@@ -20,12 +25,21 @@ class FaceAdapter:
 
         self.resolution = (img_w, img_h)
         self.face = self.face2ndarray(face)
-        self.nose = self.face[1].copy()
-        self.centroid = self.face.mean(axis=0)
+        self.nose: np.ndarray = self.face[1].copy()
+        self.centroid: np.ndarray = self.face.mean(axis=0)
         self.face -= self.centroid
         self.angle, self.R = self.set_angle(self.face)
 
         self.face = np.dot(self.R, self.face.T).T
+
+        self.time = frame_no / fps
+        self.frame_no = frame_no
+        self.fps = fps
+
+        self.angle_mean = np.zeros(3)
+        self.angle_std = np.zeros(3)
+        self.centroid_mean = np.zeros(3)
+        self.centroid_std = np.zeros(3)
 
     def face2ndarray(self, face: Iterable[NormalizedLandmarkList]) -> np.ndarray:
         np_face = []
@@ -43,7 +57,7 @@ class FaceAdapter:
 
 
 def collect_landmark(
-    recognission: NamedTuple, img_h: int, img_w: int
+    recognission: NamedTuple, img_h: int, img_w: int, frame_no: int, fps: float
 ) -> List[Optional[FaceAdapter]]:
     if not hasattr(recognission, "multi_face_landmarks"):
         return [None]
@@ -53,6 +67,8 @@ def collect_landmark(
 
     landmarks = []
     for face in multi_face_landmarks:
-        landmarks.append(FaceAdapter(getattr(face, "landmark"), img_h, img_w))
+        landmarks.append(
+            FaceAdapter(getattr(face, "landmark"), img_h, img_w, frame_no, fps)
+        )
 
     return landmarks

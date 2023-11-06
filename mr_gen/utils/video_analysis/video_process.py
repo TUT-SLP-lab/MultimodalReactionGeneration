@@ -1,5 +1,5 @@
 import os
-import re
+import shutil
 import argparse
 import numpy as np
 from tqdm import tqdm
@@ -50,7 +50,7 @@ def _video_div(trg_video_path: str, use_tq: bool = False) -> None:
 
 
 def video_analysis(
-    target: str, output: str, pnum=1, est_fps=12.5, redo=False, position=0, **_
+    target: str, output: str, pnum=1, est_fps=12.5, redo=False, tq_pos=0, **_
 ):
     if not os.path.isdir(output):
         os.mkdir(output)
@@ -58,22 +58,29 @@ def video_analysis(
     trg_list = mp4_collector(target_path=target, name="movie")
     trg_list = [(path, i % pnum == 0) for i, path in enumerate(trg_list)]
     parallel_luncher(
-        _video_div, trg_list, pnum, unpack=True, desc="Div video", position=position
+        _video_div, trg_list, pnum, unpack=True, desc="Div video", position=tq_pos
     )
 
     # apply facemesh for video
     video_path_list = mp4_collector(target_path=target, name=["host", "comp"])
     io_path_list = []
-    for video_path in video_path_list:
-        output_path = re.sub(target, output, video_path)
-        output_path = output_path.rsplit(".", maxsplit=1)[0] + ".head"
+    for video_path in tqdm(video_path_list, desc="Build ...", position=tq_pos):
+        out_base_name = os.path.basename(video_path).rsplit(".", maxsplit=1)[0]
+        output_path = os.path.join(output, out_base_name, out_base_name + ".head")
         io_path_list.append((video_path, output_path))
 
         if not os.path.isdir(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
 
+        wave_path = video_path.rsplit(".", maxsplit=1)[0] + ".wav"
+        out_wave_path = wave_path.replace(target, output)
+        if not os.path.isfile(out_wave_path) or redo:
+            shutil.copy2(wave_path, out_wave_path)
+
     estimater = HeadPoseEstimation(estimate_fps=est_fps, redo=redo)
-    output_path_list = estimater(io_path_list, pnum=pnum, visualize="sample")
+    output_path_list = estimater(
+        io_path_list, pnum=pnum, visualize="sample", position=tq_pos, desc="Est Lmark"
+    )
 
     return output_path_list
 

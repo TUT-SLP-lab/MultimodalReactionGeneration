@@ -163,6 +163,8 @@ cython_debug/
 pyannote.env
 .vscode
 
+*/**/*.log
+*/**/*.log.*
 */**/*.wav
 */**/*.mp4
 */**/*.jpg
@@ -181,4 +183,6 @@ pyannote.env
 */**/*.ckpt-*
 */**/*.ckpt.*
 */**/*.ckpt-*
-*/
+log/**/*
+*/**/my_*
+outputs/**/*

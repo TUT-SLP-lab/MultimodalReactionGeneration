@@ -1,3 +1,4 @@
+from mr_gen.utils.logger_gen import set_logger, DummyLogger
 from mr_gen.utils.parallel import parallel_luncher
 
 from mr_gen.utils.visualize import head_pose_plotter

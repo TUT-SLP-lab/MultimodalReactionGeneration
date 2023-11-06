@@ -74,8 +74,11 @@ RUN pip install --upgrade pip && \
     opencv-contrib-python==4.8.0.74 \
     soundfile==0.12.1 \
     mediapipe \
-    pyannote.audio \
-    pyworld 
+    pyworld \
+    librosa  \
+    wandb
+
+RUN pip install hydra-core --upgrade
 
 WORKDIR /home/MultimodalReactionGeneration
 CMD bash -c "npm start && /bin/bash"

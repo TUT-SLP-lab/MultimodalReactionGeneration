@@ -8,3 +8,11 @@
 
 *.zst
 *.zip
+*.log
+multimodal_dialogue*/**/*
+irregular*/**/*
+temp/**/*
+!temp/.gitkeep
+
+
+!anomaly_search_result.json

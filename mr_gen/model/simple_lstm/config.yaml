@@ -1,0 +1,160 @@
+project: Multimodal-Head-Motion-Prediction
+name: cradle-01
+version: 0.0.1
+
+hidden_size: 256
+lstm_size: 128
+bottleneck_size: 64
+lr: 1e-6
+
+batch_size: 64
+max_epochs: 100
+
+use_centroid: True
+use_angle: True
+delta_order: 2
+sample_rate: 16000
+nfft: 400
+shift: 160
+
+data_dir: ???
+no_cache_build: False
+clear_cache: False
+
+ckpt_path: ???
+log_dir: ???
+
+parallel: 8
+
+# model config
+model:
+    # encoder config
+    acostic_feat_size: 81
+    motion_feat_size: 18
+    motion_num_lstm: 1
+    acostic_num_lstm: 1
+    acostic_num_layers: 5
+    motion_num_layers: 5
+    acostic_lstm_size: ${lstm_size}
+    motion_lstm_size: ${lstm_size}
+    acostic_lstm_out_size: ${hidden_size}
+    motion_lstm_out_size: ${hidden_size}
+    acostic_affine_size: ${hidden_size}
+    motion_affine_size: ${hidden_size}
+    acostic_bottleneck_size: ${bottleneck_size}
+    motion_bottleneck_size: ${bottleneck_size}
+    acostic_output_size: ${hidden_size}
+    motion_output_size: ${hidden_size}
+
+    # multi-head attention config
+    att_heads: 1
+    att_num_layers: 1
+    att_use_residual: True
+    att_use_layer_norm: True
+
+    # general config
+    dropout_rate: 0.5
+    output_size: 18
+    bidirectional: True
+
+    # residual config
+    use_layer_norm: True
+    use_relu: True
+    use_mixing: True
+    use_residual: True
+
+    # decoder config
+    decoder_num_layers: 5
+    decoder_num_lstm: 1
+    decoder_lstm_size: ${lstm_size}
+    decoder_affine_size: ${hidden_size}
+    decoder_bottleneck_size: ${bottleneck_size}
+    decoder_output_size: ${hidden_size}
+    decoder_mapping_size: 64
+
+    decoder_bidirectional: True
+    decoder_use_layer_norm: True
+    decoder_use_relu: True
+    decoder_use_mixing: True
+    decoder_use_residual: True
+
+metrics:
+    # feature info
+    use_centroid: ${use_centroid}
+    use_angle: ${use_angle}
+    delta_order: ${delta_order}
+
+trainer:
+    accelerator: auto
+    accumulate_grad_batches: 1
+    benchmark: True
+    deterministic: True
+    check_val_every_n_epoch: 1
+    default_root_dir: ${log_dir}
+    devices: auto
+    enable_checkpointing: True
+    max_epochs: ${max_epochs}
+    log_every_n_steps: 50
+    precision: 16
+    strategy: ddp
+    val_check_interval: 0.25
+
+logger:
+    ckpt_path: ${ckpt_path}
+    exp_name: ${name}
+    project: ${project}
+    save_dir: ${log_dir}
+    version: ${version}
+
+callbacks:
+    save_top_k: 5
+    patience_epoch: 10
+    use_checkpoint: True
+    use_early_stopping: True
+
+optim:
+    use_optimizer: adam
+    momentum: 0.9
+    weight_decay: 0
+    lr: ${lr}
+    use_lr_sched: True
+    batch_size: ${batch_size}
+    max_epochs: ${max_epochs}
+
+exp:
+    use_model: simple_lstm
+    use_amp: True
+    batch_size: ${batch_size}
+    train_rate: 0.9
+    valid_rate: 0.05
+    use_logger: wandb
+
+data:
+    data_dir: ${data_dir}
+    fps: 25
+    context_start: -30
+    sample_stride: 2
+    context_size: 15
+    context_stride: 2
+    target_type: direct
+    target_position: 0
+    target_size: 1
+    target_stride: 1
+    delta_order: ${delta_order}
+    no_cache_build: ${no_cache_build}
+    clear_cache: ${clear_cache}
+
+    sample_rate: ${sample_rate}
+    nfft: ${nfft}
+    shift: ${shift}
+
+    use_centroid: ${use_centroid}
+    use_angle: ${use_angle}
+
+    parallel: ${parallel}
+
+audio:
+    sample_rate: ${sample_rate}
+    nfft: ${nfft}
+    shift: ${shift}
+    nmels: 25

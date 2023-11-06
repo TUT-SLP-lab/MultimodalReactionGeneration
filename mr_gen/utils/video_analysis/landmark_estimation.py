@@ -101,8 +101,9 @@ class HeadPoseEstimation:
     ) -> str:
         recognizer = FaceMesh(**self.detector_args)
         vr = open_video(input_v, mode="r")
+        video_fps = vr.get_fps()
 
-        skip_frame = vr.get_fps() / self.estimate_fps
+        skip_frame = video_fps / self.estimate_fps
         if skip_frame < 1:
             raise ValueError("fps of input video must be larger than estimate_fps")
         if skip_frame % 1 != 0:
@@ -120,12 +121,12 @@ class HeadPoseEstimation:
             visualize_path = output_path.rsplit(".", maxsplit=1)[0] + "_visualized.mp4"
             vw = open_video(visualize_path, mode="w", fps=self.estimate_fps)
 
-        iterator = tqdm(vr, leave=False, desc="Est Lmark", position=1) if use_tq else vr
+        iterator = tqdm(vr, leave=False, position=1) if use_tq else vr
         for i, frame in enumerate(iterator):
             if i % skip_frame != 0:
                 continue
 
-            face_info = self.estimation(frame, recognizer)
+            face_info = self.estimation(frame, recognizer, i, video_fps)
             results.append(face_info)
 
             if vw is not None:
@@ -141,7 +142,7 @@ class HeadPoseEstimation:
         return output_path
 
     def estimation(
-        self, frame: np.ndarray, face_mesh: FaceMesh
+        self, frame: np.ndarray, face_mesh: FaceMesh, frame_no: int, video_fps: float
     ) -> Optional[FaceAdapter]:
         img_h, img_w, _ = frame.shape
 
@@ -161,7 +162,12 @@ class HeadPoseEstimation:
         # Convert the color space from RGB to BGR
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-        result = collect_landmark(recognission, img_h, img_w)[0]
+        # coordinate frame_no with video_fps & self.estimate_fps
+        frame_no = int(frame_no * self.estimate_fps / video_fps)
+
+        result = collect_landmark(
+            recognission, img_h, img_w, frame_no, self.estimate_fps
+        )[0]
         if result is None:
             return None
 

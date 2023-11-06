@@ -152,7 +152,7 @@ def grid_matching(
     shift = np.argmax(res) - prob
 
     second_shift = shift * grid_size
-    total_shift = first_shift + second_shift
+    total_shift = int(first_shift + second_shift)
 
     if total_shift >= 0:
         new_trg0 = target0.copy()
@@ -173,7 +173,7 @@ def grid_matching(
     act_idx = np.argmax(np.sum(np.abs(windows) > 0, axis=-1))
     act_idx = act_idx * w_size + abs(min(total_shift, 0))
 
-    return (total_shift, (act_idx, int(act_idx + WINDOW_SIZE * FS)))
+    return (total_shift, (int(act_idx), int(act_idx + WINDOW_SIZE * FS)))
 
 
 def get_time_shift(target0: ndarray, target1: ndarray, use_tqdm=False) -> int:
@@ -224,7 +224,7 @@ def get_time_shift(target0: ndarray, target1: ndarray, use_tqdm=False) -> int:
         res.append(np.dot(trg[t : t + len(obj)], obj))
     shift += np.argmax(res) - prob
 
-    return shift
+    return int(shift)
 
 
 def alignment(
@@ -234,7 +234,7 @@ def alignment(
     mp4: str,
     out_site: str,
     use_tqdm=False,
-) -> List[Tuple[ndarray, int, int]]:
+) -> None:
     """alignment audio files.
 
     Args:
