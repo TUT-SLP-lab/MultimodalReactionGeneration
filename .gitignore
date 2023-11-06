@@ -183,6 +183,8 @@ pyannote.env
 */**/*.ckpt-*
 */**/*.ckpt.*
 */**/*.ckpt-*
-log/**/*
 */**/my_*
 outputs/**/*
+
+log/**/*
+!log/.gitkeep

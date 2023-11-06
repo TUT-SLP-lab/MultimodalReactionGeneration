@@ -11,11 +11,11 @@ DEFO_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class MotionPreprocessor:
-    def __init__(self, args):
-        self.args = args
-        self.delta_order = args.delta_order
-        self.use_centroid = args.use_centroid
-        self.use_angle = args.use_angle
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.delta_order = cfg.delta_order
+        self.use_centroid = cfg.use_centroid
+        self.use_angle = cfg.use_angle
 
     def __call__(
         self,

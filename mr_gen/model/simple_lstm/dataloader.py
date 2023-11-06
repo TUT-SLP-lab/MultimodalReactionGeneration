@@ -11,13 +11,14 @@ from mr_gen.utils.preprocess import AudioPreprocessor, MotionPreprocessor
 
 
 class HeadMotionDataset(Dataset):
-    def __init__(self, dataset_path: str, cfg: DictConfig) -> None:
+    def __init__(self, dataset_path: str, cfg: DictConfig, audio: DictConfig) -> None:
         super().__init__()
         self.dataset_path = dataset_path
         self.data_list = self.load_segment_list()
         self.cfg = cfg
+        self.audio = audio
 
-        self.audio_preprocessor = AudioPreprocessor(cfg)
+        self.audio_preprocessor = AudioPreprocessor(audio)
         self.motion_preprocessor = MotionPreprocessor(cfg)
 
     def __getitem__(self, index: int):
@@ -44,7 +45,9 @@ class HeadMotionDataset(Dataset):
 
 
 class HeadMotionDataModule(pl.LightningDataModule):
-    def __init__(self, cfg: DictConfig, exp: DictConfig, logger: Logger) -> None:
+    def __init__(
+        self, cfg: DictConfig, exp: DictConfig, audio: DictConfig, logger: Logger
+    ) -> None:
         super().__init__()
         self.data_dir = cfg.data_dir
         self.batch_size = exp.batch_size
@@ -53,6 +56,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
 
         self.cfg = cfg
         self.exp = exp
+        self.audio = audio
         self.logger = logger
 
         self.data_build: DataBuilder
@@ -70,7 +74,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
         self.data_build = DataBuilder(self.cfg, self.logger)
         self.dataset_path = self.data_build.data_file
 
-        self.dataset = HeadMotionDataset(self.dataset_path, self.cfg)
+        self.dataset = HeadMotionDataset(self.dataset_path, self.cfg, self.audio)
         self.train_size = int(self.train_rate * len(self.dataset))
         self.valid_size = int(self.valid_rate * len(self.dataset))
         self.test_size = len(self.dataset) - self.train_size - self.valid_size

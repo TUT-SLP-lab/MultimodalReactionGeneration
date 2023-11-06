@@ -6,13 +6,13 @@ DEFO_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class AudioPreprocessor:
-    def __init__(self, args):
-        self.args = args
-        self.nfft = args.nfft
-        self.shift = args.shift
-        self.nmels = args.nmels
-        self.sample_rate = args.sample_rate
-        self.delta_order = args.delta_order
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.nfft = cfg.nfft
+        self.shift = cfg.shift
+        self.nmels = cfg.nmels
+        self.sample_rate = cfg.sample_rate
+        self.delta_order = cfg.delta_order
 
         self.fbank = T.MelSpectrogram(
             sample_rate=self.sample_rate,

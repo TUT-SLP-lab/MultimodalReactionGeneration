@@ -158,3 +158,4 @@ audio:
     nfft: ${nfft}
     shift: ${shift}
     nmels: 25
+    delta_order: ${delta_order}

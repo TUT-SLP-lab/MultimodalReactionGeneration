@@ -58,7 +58,7 @@ def main(cfg: DictConfig):
     )
 
     model = SimpleLSTM(cfg.model, cfg.optim, cfg.metrics)
-    datamodule = HeadMotionDataModule(cfg.data, cfg.exp, lounch_logger)
+    datamodule = HeadMotionDataModule(cfg.data, cfg.exp, cfg.audio, lounch_logger)
 
     trainer = Trainer(**cfg.trainer, logger=logger, callbacks=callbacks)
 
