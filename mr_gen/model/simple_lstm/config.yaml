@@ -5,9 +5,9 @@ version: 0.0.1
 hidden_size: 256
 lstm_size: 128
 bottleneck_size: 64
-lr: 1e-6
+lr: 1e-4
 
-batch_size: 64
+batch_size: 1024
 max_epochs: 100
 
 use_centroid: True
@@ -25,7 +25,6 @@ clear_cache: False
 ckpt_path: ???
 log_dir: ???
 
-parallel: 8
 device: gpu
 
 # model config
@@ -152,8 +151,6 @@ data:
 
     use_centroid: ${use_centroid}
     use_angle: ${use_angle}
-
-    parallel: ${parallel}
 
 audio:
     sample_rate: ${sample_rate}

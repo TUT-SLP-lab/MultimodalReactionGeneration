@@ -4,6 +4,7 @@ import json
 from typing import Any, Dict, List, Optional
 from omegaconf import DictConfig
 from tqdm import tqdm
+import torch
 from torch.utils.data import DataLoader, Dataset, random_split
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
@@ -50,6 +51,14 @@ class HeadMotionDataset(Dataset):
             if path.endswith(".json"):
                 dict_datasets.append(os.path.join(self.dataset_path, path))
         return dict_datasets
+
+
+def collet_fn(batch):
+    fbank, motion_context, motion_target = zip(*batch)
+    fbank = torch.stack(fbank, dim=0)
+    motion_context = torch.stack(motion_context, dim=0)
+    motion_target = torch.stack(motion_target, dim=0)
+    return fbank, motion_context, motion_target
 
 
 class HeadMotionDataModule(pl.LightningDataModule):
@@ -102,10 +111,31 @@ class HeadMotionDataModule(pl.LightningDataModule):
         self.logger.info("Dataset ready.")
 
     def train_dataloader(self) -> TRAIN_DATALOADERS:
-        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            num_workers=os.cpu_count(),
+            pin_memory=True,
+            persistent_workers=True,
+            collate_fn=collet_fn,
+        )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
-        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            num_workers=os.cpu_count(),
+            pin_memory=True,
+            persistent_workers=True,
+            collate_fn=collet_fn,
+        )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            num_workers=os.cpu_count(),
+            pin_memory=True,
+            persistent_workers=True,
+            collate_fn=collet_fn,
+        )

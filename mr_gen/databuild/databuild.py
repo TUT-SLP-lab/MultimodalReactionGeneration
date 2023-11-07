@@ -1,6 +1,7 @@
 import math
 import os
 import json
+import wave
 import shutil
 import pickle
 import dataclasses
@@ -45,8 +46,6 @@ class DataBuildData(object):
 
     use_centroid: bool
     use_angle: bool
-
-    parallel: int
 
     def __post_init__(self):
         self.context_length = self.context_size * self.context_stride
@@ -180,13 +179,14 @@ class DataBuilder(DataBuildData):
             base_path, wav_name = os.path.split(wav_file)
             base_name = wav_name.rsplit(".", maxsplit=1)[0]
             head_dir = os.path.join(base_path, base_name)
+            parallel = os.cpu_count()
 
-            arg_list.append((head_dir, wav_file, i % self.parallel == 0))
+            arg_list.append((head_dir, wav_file, i % parallel == 0))
 
         parallel_luncher(
             self.make_segment,
             arg_list,
-            self.parallel,
+            parallel,
             unpack=True,
             desc="Bld data.",
             position=0,
@@ -203,6 +203,10 @@ class DataBuilder(DataBuildData):
         _, sample_rate = torchaudio_sf.load(wav_file, 0, 1)
         if sample_rate != self.sample_rate:
             raise ValueError("sample rate of wav file is not match.")
+
+        # collect audio length
+        with wave.open(wav_file, "rb") as f:
+            audio_samples = f.getnframes()
 
         # for display progress
         path, dir_name = os.path.split(head_dir)
@@ -262,6 +266,8 @@ class DataBuilder(DataBuildData):
             sample_length = fft_length * self.shift + audio_offset
             audio_end = int(cntx_end * self.sample_rate / jdic["fps"])
             audio_start = audio_end - sample_length
+            if audio_start < 0 or audio_end >= audio_samples:
+                continue
 
             jdic["audio"] = {"start": audio_start, "end": audio_end}
 

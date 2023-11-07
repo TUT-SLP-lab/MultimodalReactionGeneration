@@ -1,5 +1,6 @@
 import hydra
 from omegaconf import DictConfig
+import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
@@ -59,10 +60,16 @@ def main(cfg: DictConfig):
         use_handler=False,
     )
 
-    model = SimpleLSTM(cfg.model, cfg.optim, cfg.metrics)
+    device = "cuda:0" if torch.cuda.is_available() and cfg.device == "gpu" else "cpu"
+
+    model = SimpleLSTM(cfg.model, cfg.optim, cfg.metrics).to(device)
     datamodule = HeadMotionDataModule(cfg.data, cfg.exp, cfg.audio, lounch_logger)
 
-    trainer = Trainer(**cfg.trainer, logger=logger, callbacks=callbacks)
+    trainer = Trainer(
+        **cfg.trainer,
+        logger=logger,
+        callbacks=callbacks,
+    )
 
     lounch_logger.info("Finish setup.")
     lounch_logger.info("Start training.")

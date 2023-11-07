@@ -76,7 +76,8 @@ RUN pip install --upgrade pip && \
     mediapipe \
     pyworld \
     librosa  \
-    wandb
+    wandb \
+    torchaudio
 
 RUN pip install hydra-core --upgrade
 

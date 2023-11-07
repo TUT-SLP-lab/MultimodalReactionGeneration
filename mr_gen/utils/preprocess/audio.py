@@ -32,6 +32,7 @@ class AudioPreprocessor:
         fbank = torch.cat([fbank, power.unsqueeze(0)], dim=0).T.to(torch.float32)
 
         fbank_with_delta = self.compute_delta(fbank)
+
         return fbank_with_delta
 
     def compute_log_power(self, waveform: torch.Tensor) -> torch.Tensor:
