@@ -12,6 +12,7 @@ max_epochs: 100
 
 use_centroid: True
 use_angle: True
+motion_stride: 2
 delta_order: 2
 sample_rate: 16000
 nfft: 400
@@ -25,6 +26,7 @@ ckpt_path: ???
 log_dir: ???
 
 parallel: 8
+device: gpu
 
 # model config
 model:
@@ -85,7 +87,7 @@ metrics:
     delta_order: ${delta_order}
 
 trainer:
-    accelerator: auto
+    accelerator: ${device}
     accumulate_grad_batches: 1
     benchmark: True
     deterministic: True
@@ -135,11 +137,11 @@ data:
     context_start: -30
     sample_stride: 2
     context_size: 15
-    context_stride: 2
+    context_stride: ${motion_stride}
     target_type: direct
     target_position: 0
     target_size: 1
-    target_stride: 1
+    target_stride: ${motion_stride}
     delta_order: ${delta_order}
     no_cache_build: ${no_cache_build}
     clear_cache: ${clear_cache}
@@ -157,5 +159,5 @@ audio:
     sample_rate: ${sample_rate}
     nfft: ${nfft}
     shift: ${shift}
-    nmels: 25
+    nmels: 26
     delta_order: ${delta_order}

@@ -123,9 +123,22 @@ class MotionDecoder(nn.Module):
         ffn["output"] = nn.Linear(cfg.decoder_mapping_size, cfg.output_size)
         self.mapping = nn.Sequential(ffn)
 
+    def seq_reshape(self, x: torch.Tensor) -> torch.Tensor:
+        # x: [sumone, batch_size, seq_len, feat_size]
+        org_shape = list(x.size())
+        x = x.view(-1, x.size(-2), x.size(-1))
+        # x: [someone * batch_size, seq_len, feat_size]
+        x = x[:, -1:, :]
+        # x: [someone * batch_size, 1, feat_size]
+        new_shape = org_shape
+        new_shape[-2] = 1
+        x = x.view(new_shape)
+        # x: [someone, batch_size, 1, feat_size]
+        return x
+
     def forward(self, att_embedded: torch.Tensor) -> torch.Tensor:
         y = self.decoder_lstm(att_embedded)
-        y = self.mapping(y)
+        y = self.mapping(self.seq_reshape(y))
         return y
 
 
@@ -162,7 +175,7 @@ class SimpleLSTM(pl.LightningModule):
     ) -> torch.Tensor:
         acoustic_embedded = self.acoustic_encoder(acoustic_feature)
         motion_embedded = self.motion_encoder(motion_feature)
-        att_embedded = self.multimodal_att(acoustic_embedded, motion_embedded)
+        att_embedded = self.multimodal_att(motion_embedded, acoustic_embedded)
         y = self.motion_decoder(att_embedded)
         return y
 

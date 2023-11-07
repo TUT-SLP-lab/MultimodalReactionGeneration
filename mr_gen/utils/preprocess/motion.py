@@ -7,8 +7,6 @@ import torch
 from mr_gen.utils.io import ZERO_PADDING
 from mr_gen.utils.tools.adapter import FaceAdapter
 
-DEFO_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class MotionPreprocessor:
     def __init__(self, cfg):
@@ -23,7 +21,6 @@ class MotionPreprocessor:
         start: int,
         end: int,
         stride: int,
-        device: torch.device = DEFO_DEVICE,
     ) -> Any:
         head_seq = []
         for idx in range(start, end, stride):
@@ -33,7 +30,7 @@ class MotionPreprocessor:
             target_path = os.path.join(head_dir, file_name)
 
             with open(target_path, "rb") as f:
-                head: FaceAdapter = pickle.load(f)
+                head: FaceAdapter = pickle.load(f)[1]  # (idx, head)
 
             record = []
             if self.use_centroid:
@@ -51,7 +48,7 @@ class MotionPreprocessor:
             record = torch.cat(record, dim=0)
             head_seq.append(record)
 
-        head_seq = torch.stack(head_seq, dim=0).to(device)
+        head_seq = torch.stack(head_seq, dim=0).to(torch.float32)
         head_seq_with_delta = self.compute_delta(head_seq)
 
         return head_seq_with_delta

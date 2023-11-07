@@ -1,7 +1,9 @@
+import os
 from logging import Logger
 import json
 from typing import Any, Dict, List, Optional
 from omegaconf import DictConfig
+from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset, random_split
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
@@ -22,8 +24,12 @@ class HeadMotionDataset(Dataset):
         self.motion_preprocessor = MotionPreprocessor(cfg)
 
     def __getitem__(self, index: int):
-        # return self.dataset_path[index]
-        jdic = self.data_list[index]
+        jdic_path = self.data_list[index]
+        with open(jdic_path, "r", encoding="utf-8") as f:
+            for lines, line in enumerate(f):
+                if lines > 0:
+                    raise ValueError("json file must have only one line.")
+                jdic = json.loads(line)
 
         fbank = self.audio_preprocessor(
             jdic["wav_file"], jdic["audio"]["start"], jdic["audio"]["end"]
@@ -34,14 +40,16 @@ class HeadMotionDataset(Dataset):
         return fbank, motion_context, motion_target
 
     def __len__(self) -> int:
-        return len(self.dataset_path)
+        return len(self.data_list)
 
     def load_segment_list(self) -> List[Dict[str, Any]]:
-        with open(self.dataset_path, "r", encoding="utf-8") as f:
-            dict_dataset = []
-            for line in f:
-                dict_dataset.append(json.loads(line))
-            return dict_dataset
+        dict_datasets = []
+        for path in tqdm(
+            os.listdir(self.dataset_path), desc="load segment list", position=0
+        ):
+            if path.endswith(".json"):
+                dict_datasets.append(os.path.join(self.dataset_path, path))
+        return dict_datasets
 
 
 class HeadMotionDataModule(pl.LightningDataModule):
@@ -59,7 +67,6 @@ class HeadMotionDataModule(pl.LightningDataModule):
         self.audio = audio
         self.logger = logger
 
-        self.data_build: DataBuilder
         self.dataset_path: str
         self.train_size: int
         self.valid_size: int
@@ -71,8 +78,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
         self.test_dataset: Dataset
 
     def setup(self, stage: Optional[str] = None) -> None:
-        self.data_build = DataBuilder(self.cfg, self.logger)
-        self.dataset_path = self.data_build.data_file
+        self.dataset_path = DataBuilder(self.cfg, self.logger).data_site
 
         self.dataset = HeadMotionDataset(self.dataset_path, self.cfg, self.audio)
         self.train_size = int(self.train_rate * len(self.dataset))

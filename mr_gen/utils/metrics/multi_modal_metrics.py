@@ -27,8 +27,8 @@ class SeparateMeanSquaredError(MeanSquaredError):
         p_shape[-1] = end - start
         t_shape[-1] = end - start
 
-        preds = preds.reshape(*p_shape)
-        target = target.reshape(*t_shape)
+        preds = preds.reshape(*p_shape).contiguous()
+        target = target.reshape(*t_shape).contiguous()
 
         return super().update(preds, target)
 

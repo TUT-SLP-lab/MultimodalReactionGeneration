@@ -54,7 +54,9 @@ def main(cfg: DictConfig):
     callbacks = setup_callbacks(cfg)
 
     lounch_logger = set_logger(
-        name="lounch", rootname=cfg.logger.save_dir + "/lounch.log"
+        name="lounch",
+        # rootname=cfg.logger.save_dir + "/lounch.log",
+        use_handler=False,
     )
 
     model = SimpleLSTM(cfg.model, cfg.optim, cfg.metrics)

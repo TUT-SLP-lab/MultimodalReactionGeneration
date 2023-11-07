@@ -2,8 +2,6 @@ import torch
 import torchaudio.transforms as T
 import torchaudio._backend.soundfile_backend as torchaudio_sf
 
-DEFO_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class AudioPreprocessor:
     def __init__(self, cfg):
@@ -23,27 +21,22 @@ class AudioPreprocessor:
         )
         self.log = lambda x: torch.log(torch.clamp(x, 1e-6) * 1)
 
-    def __call__(
-        self, wavepath: str, start: int, end: int, device: torch.device = DEFO_DEVICE
-    ) -> torch.Tensor:
+    def __call__(self, wavepath: str, start: int, end: int) -> torch.Tensor:
         waveforme, sample_rate = torchaudio_sf.load(wavepath, start, end - start)
         if sample_rate != self.sample_rate:
             raise ValueError("sample_rate must be same as --sample-rate")
 
-        waveforme = waveforme.to(device)
-        fbank = self.fbank(waveforme)
+        fbank = self.fbank(waveforme[0])  # pylint: disable=not-callable
         fbank = self.log(fbank + 1e-6)
-        power = self.compute_log_power(waveforme, device)
-        fbank = torch.cat([fbank, power.unsqueeze(0)], dim=0).T
+        power = self.compute_log_power(waveforme[0])
+        fbank = torch.cat([fbank, power.unsqueeze(0)], dim=0).T.to(torch.float32)
 
         fbank_with_delta = self.compute_delta(fbank)
         return fbank_with_delta
 
-    def compute_log_power(
-        self, waveform: torch.Tensor, device: torch.device = DEFO_DEVICE
-    ) -> torch.Tensor:
+    def compute_log_power(self, waveform: torch.Tensor) -> torch.Tensor:
         num_frames = (len(waveform) - self.nfft) // self.shift + 1
-        log_power = torch.zeros(num_frames, device=device)
+        log_power = torch.zeros(num_frames)
         for frame_no in range(num_frames):
             start_index = frame_no * self.shift
             log_power[frame_no] = torch.log(

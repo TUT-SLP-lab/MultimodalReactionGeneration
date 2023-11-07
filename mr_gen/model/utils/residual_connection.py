@@ -19,6 +19,7 @@ class ResidualConnection(pl.LightningModule):
 
     def forward(self, x, *args, **kwargs):
         y = self.module(x, *args, **kwargs)
+
         y = y + x
         if self.layer_norm is not None:
             y = self.layer_norm(y)

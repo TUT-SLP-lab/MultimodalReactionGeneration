@@ -93,14 +93,6 @@ class DataBuilder(DataBuildData):
         self.base_dir_name = os.path.split(self.data_dir)[-1]
         self.data_site = CACHE_PATH + "/" + self.base_dir_name + "_" + ymd
 
-        # build directory structure
-        ffilter = FileFilter().include_extention(["wav"])
-        ffilter = ffilter.contained(["host", "comp"])
-        direc = Directory(self.data_dir).build_structure(ffilter)
-
-        # collect wav file path
-        self.wav_list = direc.get_file_path(serialize=True)
-
         # clear cache
         if self.clear_cache:
             self.logger.info("Clear dataset cache.")
@@ -110,31 +102,26 @@ class DataBuilder(DataBuildData):
                 f.write("")
 
         # check cache, and make data site or set cache path
-        prev_dir = self.check_cache()
-        self.builded = False
-        if prev_dir and not self.no_cache_build:
-            self.builded = True  # mean already builded data
-            self.data_site = prev_dir
-        else:
-            self.builded = False  # mean not builded data
-
-            if prev_dir and self.no_cache_build:
-                self.logger.info(f"Clear previous cache : {prev_dir}")
-                shutil.rmtree(prev_dir)
-
-            os.mkdir(self.data_site)
-            with open(self.data_site + "/" + DATAINFO_FILE, "wb") as f:
-                pickle.dump(self, f)
+        if not self.judge_rebuild_data():
+            self.data_site = self.check_cache()
+            self.logger.info("Already builded data.")
+            return
+        self.logger.info("Not found cache data (or re-build).")
 
         self.data_file = self.data_site + "/" + DATASET_FILE
         self.fft_fps_freq_rate = int(self.sample_rate / self.shift / self.fps)
 
-        if not self.builded:
-            self.logger.info("Start build data.")
-            self.build()
-            self.logger.info("Finish build data.")
-        else:
-            self.logger.info("Already builded data.")
+        # build directory structure
+        ffilter = FileFilter().include_extention(["wav"])
+        ffilter = ffilter.contained(["host", "comp"])
+        direc = Directory(self.data_dir).build_structure(ffilter)
+
+        # collect wav file path
+        self.wav_list = direc.get_file_path(serialize=True)
+
+        self.logger.info("Start build data.")
+        self.build()
+        self.logger.info("Finish build data.")
 
     def group_key_gen(self, path: str) -> str:
         return os.path.basename(path).rsplit(".")[0]
@@ -150,17 +137,32 @@ class DataBuilder(DataBuildData):
                     return CACHE_PATH + "/" + dirs
         return None
 
+    def judge_rebuild_data(self) -> bool:
+        prev_dir = self.check_cache()
+        self.builded = False
+        if prev_dir and not self.no_cache_build:
+            return False  # mean already builded data
+        else:
+            if prev_dir and self.no_cache_build:
+                self.logger.info(f"Clear previous cache : {prev_dir}")
+                shutil.rmtree(prev_dir)
+
+            os.mkdir(self.data_site)
+            with open(self.data_site + "/" + DATAINFO_FILE, "wb") as f:
+                pickle.dump(self, f)
+
+            return True  # mean not builded data or rebuild
+
     def is_head_none(self, head_dir: str, start: int, end: int, stride: int) -> bool:
         idx = 0
-        for idx in range(start, end, self.context_stride):
+        for idx in range(start, end, stride):
             file_idx = str(idx).zfill(ZERO_PADDING)
             file_name = os.path.split(head_dir)[1] + "_" + file_idx + ".head"
             with open(head_dir + "/" + file_name, "rb") as f:
-                face: FaceAdapter = pickle.load(f)
+                face: FaceAdapter = pickle.load(f)[1]  # (idx, head)
             if face is None:
-                break
-        if idx != end - stride:
-            return True
+                return True
+
         return False
 
     def coordinate_audio_start(self, audio_start: int, audio_end: int) -> int:
@@ -190,20 +192,6 @@ class DataBuilder(DataBuildData):
             position=0,
         )
 
-        # merge json
-        with open(self.data_file, "w", encoding="utf-8") as wf:
-            for file_path in os.listdir(self.data_site):
-                read_path = os.path.join(self.data_site, file_path)
-                if read_path == self.data_file:
-                    continue
-                if read_path.endswith(DATAINFO_FILE):
-                    continue
-
-                with open(read_path, "r", encoding="utf-8") as rf:
-                    for line in rf:
-                        wf.write(line)
-                os.remove(read_path)
-
     def make_segment(self, head_dir: str, wav_file: str, use_tq: bool = False):
         head_list = os.listdir(head_dir)
         head_len = len(head_list)
@@ -227,7 +215,12 @@ class DataBuilder(DataBuildData):
 
         for i in iterator:
             # start condition
-            if i < abs(self.context_start) + max(self.delta_order, head_offset):
+            minimun_start = (
+                abs(self.context_start)
+                + self.delta_order * self.context_stride
+                + head_offset
+            )
+            if i < minimun_start:
                 continue
             # end condition
             if i + self.target_position + self.target_size > head_len:
@@ -242,7 +235,7 @@ class DataBuilder(DataBuildData):
             }
 
             # check head file of context
-            cntx_start = i + self.context_start - self.delta_order
+            cntx_start = i + self.context_start - self.delta_order * self.context_stride
             cntx_end = i + self.context_end
             if self.is_head_none(head_dir, cntx_start, cntx_end, self.context_stride):
                 continue
@@ -253,7 +246,8 @@ class DataBuilder(DataBuildData):
             }
 
             # check head file of target
-            trgt_start = i + self.target_position - self.delta_order
+            _target_position = i + self.target_position
+            trgt_start = _target_position - self.delta_order * self.target_stride
             trgt_end = i + self.target_end
             if self.is_head_none(head_dir, trgt_start, trgt_end, self.target_stride):
                 continue
@@ -273,10 +267,10 @@ class DataBuilder(DataBuildData):
 
             jdic["delta_order"] = self.delta_order
 
-            ext_name = "_".join(os.path.split(target_name))
-            output_path = self.data_file + "." + ext_name
+            ext_name = "_".join(os.path.split(target_name)) + str(i) + ".json"
+            output_path = self.data_file.rsplit(".", maxsplit=1)[0] + "_" + ext_name
 
             # dump json
-            with open(output_path, "a", encoding="utf-8") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 jdic_str = json.dumps(jdic)
                 f.write(jdic_str + "\n")
