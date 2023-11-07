@@ -266,7 +266,7 @@ class DataBuilder(DataBuildData):
             sample_length = fft_length * self.shift + audio_offset
             audio_end = int(cntx_end * self.sample_rate / jdic["fps"])
             audio_start = audio_end - sample_length
-            if audio_start < 0 or audio_end >= audio_samples:
+            if audio_start < 0 or audio_end > audio_samples:
                 continue
 
             jdic["audio"] = {"start": audio_start, "end": audio_end}
