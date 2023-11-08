@@ -66,12 +66,12 @@ def video_analysis(
     io_path_list = []
     for video_path in tqdm(video_path_list, desc="Build ...", position=tq_pos):
         out_base_name = os.path.basename(video_path).rsplit(".", maxsplit=1)[0]
-        output_path = os.path.join(output, out_base_name, out_base_name + ".head")
+        out_dir_name = os.path.dirname(video_path).replace(target, output)
+        output_path = os.path.join(out_dir_name, out_base_name, out_base_name + ".head")
         io_path_list.append((video_path, output_path))
 
         if not os.path.isdir(os.path.dirname(output_path)):
             os.makedirs(os.path.dirname(output_path))
-
         wave_path = video_path.rsplit(".", maxsplit=1)[0] + ".wav"
         out_wave_path = wave_path.replace(target, output)
         if not os.path.isfile(out_wave_path) or redo:
