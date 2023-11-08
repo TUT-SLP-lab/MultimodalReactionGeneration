@@ -50,6 +50,10 @@ def gen_head_motion(
     motion_preprocessor = MotionPreprocessor(data_conf)
     head_seq = motion_preprocessor(head_dir, 0, frame_length, data_conf.context_stride)
 
+    # preprocess audio
+    audio_preprocessor = AudioPreprocessor(audio_conf)
+    fbank = audio_preprocessor(audio_path, 0, -1)
+
 
 @hydra.main(config_path="conf", config_name="config")
 def main(cfg: DictConfig = None):
