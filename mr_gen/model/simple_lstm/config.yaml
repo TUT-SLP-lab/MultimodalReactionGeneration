@@ -34,8 +34,8 @@ model:
     motion_feat_size: 18
     motion_num_lstm: 1
     acostic_num_lstm: 1
-    acostic_num_layers: 10
-    motion_num_layers: 10
+    acostic_num_layers: 2
+    motion_num_layers: 2
     # acostic_num_layers: 5
     # motion_num_layers: 5
     acostic_lstm_size: ${lstm_size}
@@ -67,7 +67,7 @@ model:
     use_residual: True
 
     # decoder config
-    decoder_num_layers: 10
+    decoder_num_layers: 2
     # decoder_num_layers: 5
     decoder_num_lstm: 1
     decoder_lstm_size: ${lstm_size}

@@ -114,7 +114,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            num_workers=os.cpu_count() // 3,
+            num_workers=os.cpu_count() // 2,
             pin_memory=True,
             persistent_workers=True,
             collate_fn=collet_fn,
@@ -125,7 +125,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
-            num_workers=os.cpu_count() // 3,
+            num_workers=os.cpu_count() // 2,
             pin_memory=True,
             persistent_workers=True,
             collate_fn=collet_fn,
@@ -136,7 +136,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
         return DataLoader(
             self.test_dataset,
             batch_size=self.batch_size,
-            num_workers=os.cpu_count() // 3,
+            num_workers=os.cpu_count() // 2,
             pin_memory=True,
             persistent_workers=True,
             collate_fn=collet_fn,
