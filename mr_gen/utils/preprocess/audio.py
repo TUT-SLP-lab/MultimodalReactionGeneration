@@ -22,7 +22,8 @@ class AudioPreprocessor:
         self.log = lambda x: torch.log(torch.clamp(x, 1e-6) * 1)
 
     def __call__(self, wavepath: str, start: int, end: int) -> torch.Tensor:
-        waveforme, sample_rate = torchaudio_sf.load(wavepath, start, end - start)
+        length = end if end == -1 else end - start
+        waveforme, sample_rate = torchaudio_sf.load(wavepath, start, length)
         if sample_rate != self.sample_rate:
             raise ValueError("sample_rate must be same as --sample-rate")
 
