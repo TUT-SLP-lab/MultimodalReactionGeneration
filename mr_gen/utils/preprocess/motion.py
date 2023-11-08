@@ -39,7 +39,7 @@ class MotionPreprocessor:
             if self.use_angle:
                 # followed related work "BLSTM Neural Networks for Speech-Driven Head Motion Synthesis"
                 # Ding et al. 2015
-                angle = (head.angle - head.angle_mean) / (head.angle_std * 4)
+                angle = (head.angle - head.angle_mean) / head.angle_std
                 record.append(torch.tensor(angle))
             if len(record) == 0:
                 raise ValueError(

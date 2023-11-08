@@ -27,7 +27,7 @@ class AudioPreprocessor:
             raise ValueError("sample_rate must be same as --sample-rate")
 
         fbank = self.fbank(waveforme[0])  # pylint: disable=not-callable
-        fbank = self.log(fbank + 1e-6)
+        fbank = self.log(torch.clamp(fbank, 1e-10))
         power = self.compute_log_power(waveforme[0])
         fbank = torch.cat([fbank, power.unsqueeze(0)], dim=0).T.to(torch.float32)
 
@@ -40,9 +40,13 @@ class AudioPreprocessor:
         log_power = torch.zeros(num_frames)
         for frame_no in range(num_frames):
             start_index = frame_no * self.shift
-            log_power[frame_no] = torch.log(
-                torch.sum(waveform[start_index : start_index + self.nfft] ** 2)
-            )
+            stop_index = start_index + self.nfft
+
+            power = torch.sum(torch.pow(waveform[start_index:stop_index], 2))
+            power = torch.clamp(power, 1e-10)
+
+            log_power[frame_no] = torch.log(power)
+
         return log_power
 
     def compute_delta(self, fbank: torch.Tensor) -> torch.Tensor:

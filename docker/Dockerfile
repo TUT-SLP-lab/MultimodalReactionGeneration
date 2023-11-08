@@ -77,7 +77,8 @@ RUN pip install --upgrade pip && \
     pyworld \
     librosa  \
     wandb \
-    torchaudio
+    torchaudio \
+    pytorch-lightning 
 
 RUN pip install hydra-core --upgrade
 

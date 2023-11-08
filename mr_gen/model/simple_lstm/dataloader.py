@@ -118,6 +118,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
             pin_memory=True,
             persistent_workers=True,
             collate_fn=collet_fn,
+            shuffle=True,
         )
 
     def val_dataloader(self) -> EVAL_DATALOADERS:
@@ -128,6 +129,7 @@ class HeadMotionDataModule(pl.LightningDataModule):
             pin_memory=True,
             persistent_workers=True,
             collate_fn=collet_fn,
+            shuffle=True,
         )
 
     def test_dataloader(self) -> EVAL_DATALOADERS:
@@ -138,4 +140,5 @@ class HeadMotionDataModule(pl.LightningDataModule):
             pin_memory=True,
             persistent_workers=True,
             collate_fn=collet_fn,
+            shuffle=True,
         )

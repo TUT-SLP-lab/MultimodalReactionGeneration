@@ -3,7 +3,11 @@ from omegaconf import DictConfig
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import (
+    ModelCheckpoint,
+    EarlyStopping,
+    LearningRateMonitor,
+)
 
 from mr_gen.utils.logger_gen import set_logger
 
@@ -43,6 +47,9 @@ def setup_callbacks(args: DictConfig):
             mode="min",
         )
         callbacks.append(early_stop)
+    if args.exp.use_logger == "wandb":
+        lr_monitor = LearningRateMonitor(logging_interval="step")
+        callbacks.append(lr_monitor)
     if callbacks == []:
         callbacks = None
     return callbacks
@@ -56,7 +63,6 @@ def main(cfg: DictConfig):
 
     lounch_logger = set_logger(
         name="lounch",
-        # rootname=cfg.logger.save_dir + "/lounch.log",
         use_handler=False,
     )
 

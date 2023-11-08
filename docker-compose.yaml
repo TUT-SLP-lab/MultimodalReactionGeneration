@@ -8,7 +8,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
-    shm_size: "32gb"
+    shm_size: "64gb"
     environment:
       - PYTHONPATH=/opt/ml
     ports:

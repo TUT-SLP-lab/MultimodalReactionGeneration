@@ -37,8 +37,8 @@ class DataBuildData(object):
     target_size: int
     target_stride: int
     delta_order: int
-    no_cache_build: bool
-    clear_cache: bool
+    # no_cache_build: bool
+    # clear_cache: bool
 
     sample_rate: int
     nfft: int
@@ -82,6 +82,9 @@ class DataBuildData(object):
 class DataBuilder(DataBuildData):
     def __init__(self, cfg: DictConfig, logger: Optional[Logger] = None):
         content: Dict[str, Any] = dict(cfg)
+        self.no_cache_build = content.pop("no_cache_build", False)
+        self.clear_cache = content.pop("clear_cache", False)
+
         super().__init__(**content)
 
         self.cfg = cfg

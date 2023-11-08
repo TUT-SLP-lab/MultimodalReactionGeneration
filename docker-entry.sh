@@ -1,2 +1,2 @@
 python setup.py install
-# bash -c "/bin/bash"
+bash -c "/bin/bash"

@@ -1,6 +1,7 @@
 from collections import OrderedDict
-from typing import Dict, Tuple, Union
+from typing import Any, Dict, Tuple, Union
 from omegaconf import DictConfig
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import LRScheduler
@@ -166,6 +167,10 @@ class SimpleLSTM(pl.LightningModule):
             target_range=gen_target_dict(metrics),
             prefix="train_",
         )
+        self.valid_metrics = MultiTargetMetrics(
+            target_range=gen_target_dict(metrics),
+            prefix="valid_",
+        )
 
         self.optimizer = None
         self.lr_scheduler = None
@@ -212,7 +217,7 @@ class SimpleLSTM(pl.LightningModule):
             }
         return {"optimizer": self.optimizer}
 
-    def training_step(self, batch, *args):
+    def training_step(self, batch, *args) -> STEP_OUTPUT:
         acoustic_feature, motion_feature, motion_target = batch
         y = self.forward(acoustic_feature, motion_feature)
 
@@ -221,4 +226,15 @@ class SimpleLSTM(pl.LightningModule):
 
         self.train_metrics(y, motion_target)
         self.log_dict(self.train_metrics, logger=True, on_epoch=True, on_step=True)
+        return {"loss": loss}
+
+    def validation_step(self, batch, *args: Any) -> STEP_OUTPUT:
+        acoustic_feature, motion_feature, motion_target = batch
+        y = self.forward(acoustic_feature, motion_feature)
+
+        loss = self.lossfun()(y, motion_target)
+        self.log("val_loss", loss, prog_bar=True, logger=True)
+
+        self.valid_metrics(y, motion_target)
+        self.log_dict(self.valid_metrics, logger=True, on_epoch=True, on_step=True)
         return {"loss": loss}

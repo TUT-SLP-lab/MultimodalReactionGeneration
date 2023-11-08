@@ -42,9 +42,6 @@ class MultiTargetMetrics(MetricCollection):
         postfix: Optional[str] = None,
         compute_groups: Union[bool, List[List[str]]] = True
     ) -> None:
-        if "all" not in target_range.keys():
-            target_range["all"] = (0, -1)
-
         self.target_range = target_range
         metrics: Dict[str, Metric] = {
             key: SeparateMeanSquaredError(self.target_range[key])

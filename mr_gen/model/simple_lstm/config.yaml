@@ -1,13 +1,13 @@
 project: Multimodal-Head-Motion-Prediction
 name: cradle-01
-version: 0.0.1
+version: null
 
 hidden_size: 256
 lstm_size: 128
 bottleneck_size: 64
-lr: 1e-4
+lr: 5e-6
 
-batch_size: 1024
+batch_size: 512
 max_epochs: 100
 
 use_centroid: True
@@ -54,7 +54,7 @@ model:
     att_use_layer_norm: True
 
     # general config
-    dropout_rate: 0.5
+    dropout_rate: 0.1
     output_size: 18
     bidirectional: True
 
@@ -96,7 +96,7 @@ trainer:
     enable_checkpointing: True
     max_epochs: ${max_epochs}
     log_every_n_steps: 50
-    precision: 16
+    precision: 32
     strategy: ddp
     val_check_interval: 0.25
 
