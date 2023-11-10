@@ -2,7 +2,7 @@
 import os
 import wave
 import pickle
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 from numpy import ndarray
 import numpy as np
 
@@ -11,11 +11,13 @@ from mr_gen.utils.tools import FaceAdapter
 ZERO_PADDING = 5
 
 
-def compute_statistics(result: List[Optional[FaceAdapter]]) -> Dict[str, ndarray]:
+def compute_statistics(
+    result: List[Tuple[int, Optional[FaceAdapter]]]
+) -> Dict[str, ndarray]:
     # compute mean
     angle_sum = np.zeros(3)
     centroid_sum = np.zeros(3)
-    for face in result:
+    for _, face in result:
         if face is None:
             continue
         angle_sum += face.angle
@@ -26,7 +28,7 @@ def compute_statistics(result: List[Optional[FaceAdapter]]) -> Dict[str, ndarray
     # compute std
     angle_err = np.zeros(3)
     centroid_err = np.zeros(3)
-    for face in result:
+    for _, face in result:
         if face is None:
             continue
         angle_err += (face.angle - angle_mean) ** 2
@@ -42,7 +44,7 @@ def compute_statistics(result: List[Optional[FaceAdapter]]) -> Dict[str, ndarray
     }
 
 
-def write_head_pose(path: str, result: List[Optional[FaceAdapter]]) -> None:
+def write_head_pose(path: str, result: List[Tuple[int, Optional[FaceAdapter]]]) -> None:
     """Write head pose result to file.
 
     Args:
@@ -52,8 +54,8 @@ def write_head_pose(path: str, result: List[Optional[FaceAdapter]]) -> None:
     # check type
     if not isinstance(result, list):
         raise TypeError("result must be list.")
-    if not isinstance(result[0], (FaceAdapter, type(None))):
-        raise TypeError("result must be list of FaceAdapter or NoneType.")
+    if not isinstance(result[0][1], (FaceAdapter, type(None))):
+        raise TypeError("result must be list of index & FaceAdapter or NoneType.")
 
     # make directory if not exist
     if os.path.isdir(os.path.dirname(path)):
@@ -63,7 +65,7 @@ def write_head_pose(path: str, result: List[Optional[FaceAdapter]]) -> None:
     statis = compute_statistics(result)
 
     # save as pickle each FaceAdapter
-    for i, a_face in enumerate(result):
+    for i, a_face in result:
         base_path, ext = path.rsplit(".", maxsplit=1)
         output_path = base_path + "_" + str(i).zfill(ZERO_PADDING) + "." + ext
 

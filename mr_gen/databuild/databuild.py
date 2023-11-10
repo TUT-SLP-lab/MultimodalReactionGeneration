@@ -72,7 +72,7 @@ class DataBuildData(object):
             raise ValueError("sample_stride must be positive.")
 
         self.fft_freq = self.sample_rate / self.shift
-        self.sample_fps = self.fps / self.sample_stride
+        self.sample_fps = self.fps / self.context_stride
         if self.fft_freq / self.sample_fps % 1 != 0:
             raise ValueError(
                 "stft frequency (sampleingrate /shift) must be multiple of fps."
@@ -230,7 +230,7 @@ class DataBuilder(DataBuildData):
             if i < minimun_start:
                 continue
             # end condition
-            if i + self.target_position + self.target_size > head_len:
+            if i + self.target_position + self.target_length + 1 > head_len:
                 break
 
             jdic = {

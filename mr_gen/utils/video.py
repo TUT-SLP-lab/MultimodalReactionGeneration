@@ -11,6 +11,7 @@ from typing import List, Optional, Union, Tuple, overload
 from typing_extensions import Literal, TypeAlias
 import cv2
 from numpy import ndarray
+import moviepy.editor as mpedit
 
 
 VideoIOMode: TypeAlias = Literal["w", "r"]
@@ -49,6 +50,9 @@ class _VideoB(ABC):
 
     def trime_time(self, _start: float, _stop: float) -> _VideoRIdx:
         raise AttributeError("This instance has no attribute trime_time().")
+
+    def patch_audio(self, _out_path: str, _audio_path: str) -> None:
+        raise AttributeError("This instance has no attribute patch_audio().")
 
     @abstractmethod
     def close(self) -> None:
@@ -151,6 +155,15 @@ class VideoWriter(_VideoWB):
             self._write_frame(frame)
 
 
+def patch_audio(out_path: str, video_path: str, audio_path: str) -> None:
+    video = mpedit.VideoFileClip(video_path)
+    audio = mpedit.AudioFileClip(audio_path)
+    video: mpedit.VideoFileClip = video.set_audio(audio)
+    video.write_videofile(out_path)
+    video.close()
+    audio.close()
+
+
 class _VideoRB(VideoIOBase):
     def __init__(self, path: str, codec: str = "mp4v") -> None:
         super().__init__(path, codec)
@@ -226,7 +239,7 @@ class _VideoRIdx(_VideoRB):
         return self
 
     def __next__(self) -> ndarray:
-        if self._current_idx == self._length + self._start:
+        if self._current_idx == self._stop:
             self._reset()
             raise StopIteration
 

@@ -174,6 +174,9 @@ class SimpleLSTM(pl.LightningModule):
 
         self.optimizer = None
         self.lr_scheduler = None
+        self.delta_loss_scale = cfg.get("delta_loss_scale", 1.0)
+        self.all_static = cfg.get("all_static", False)
+        self.delta_order = metrics.delta_order
 
     def forward(
         self, acoustic_feature: torch.Tensor, motion_feature: torch.Tensor
@@ -217,14 +220,38 @@ class SimpleLSTM(pl.LightningModule):
             }
         return {"optimizer": self.optimizer}
 
+    def split_and_form(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        if self.delta_order == 0:
+            return y
+
+        size = (self.metrics.use_centroid + self.metrics.use_angle) * 3
+        _y = y.split(size, dim=-1)[0]
+        _x = x[:, -1:, :].split(size, dim=-1)[0]
+
+        v = _y - _x
+        if self.delta_order == 1:
+            return torch.cat([_y, v], dim=-1)
+
+        _vy = y.split(size, dim=-1)[1]
+        _vx = x[:, -1:, :].split(size, dim=-1)[1]
+        a = _vy - _vx
+        return torch.cat([_y, v, a], dim=-1)
+
     def training_step(self, batch, *args) -> STEP_OUTPUT:
         acoustic_feature, motion_feature, motion_target = batch
         y = self.forward(acoustic_feature, motion_feature)
 
-        loss = self.lossfun()(y, motion_target)
+        if self.all_static:
+            y = self.split_and_form(motion_feature, y)
+
+        scaler = torch.ones_like(y)
+        delta_start = y.shape[2] // (self.delta_order + 1)
+        scaler[:, :, delta_start:] = torch.sqrt(torch.tensor(self.delta_loss_scale))
+
+        loss = self.lossfun()(y * scaler, motion_target * scaler)
         self.log("train_loss", loss, prog_bar=True, logger=True)
 
-        self.train_metrics(y, motion_target)
+        self.train_metrics(y * scaler, motion_target * scaler)
         self.log_dict(self.train_metrics, logger=True, on_epoch=True, on_step=True)
         return {"loss": loss}
 

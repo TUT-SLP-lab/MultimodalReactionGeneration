@@ -1,7 +1,5 @@
 import os
 import pickle
-from typing import Any
-
 import torch
 
 from mr_gen.utils.io import ZERO_PADDING
@@ -21,7 +19,7 @@ class MotionPreprocessor:
         start: int,
         end: int,
         stride: int,
-    ) -> Any:
+    ) -> torch.Tensor:
         head_seq = []
         for idx in range(start, end, stride):
             base_name = os.path.split(head_dir)[1]

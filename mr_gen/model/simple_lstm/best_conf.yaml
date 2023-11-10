@@ -84,7 +84,6 @@ model:
     decoder_use_residual: True
 
     delta_loss_scale: 1
-    all_static: True
 
 metrics:
     # feature info

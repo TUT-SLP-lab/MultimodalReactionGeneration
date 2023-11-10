@@ -12,7 +12,7 @@ from tqdm import tqdm
 from mr_gen.utils.video import open_video
 from mr_gen.utils import head_pose_plotter
 from mr_gen.utils import parallel_luncher
-from mr_gen.utils.io import write_head_pose
+from mr_gen.utils.io import write_head_pose, ZERO_PADDING
 from mr_gen.utils.tools import collect_landmark, FaceAdapter
 
 
@@ -112,10 +112,6 @@ class HeadPoseEstimation:
 
         results = []
 
-        # When exist results & self.redo == False
-        if os.path.isfile(output_path) and not self.redo:
-            return output_path
-
         vw = None
         if visualize:
             visualize_path = output_path.rsplit(".", maxsplit=1)[0] + "_visualized.mp4"
@@ -126,8 +122,14 @@ class HeadPoseEstimation:
             if i % skip_frame != 0:
                 continue
 
+            # When exist results & self.redo == False, skip mediapipe process
+            base_path, ext = output_path.rsplit(".", maxsplit=1)
+            out_seg_path = base_path + "_" + str(i).zfill(ZERO_PADDING) + "." + ext
+            if os.path.isfile(out_seg_path) and not self.redo:
+                continue
+
             face_info = self.estimation(frame, recognizer, i, video_fps)
-            results.append(face_info)
+            results.append((i // skip_frame, face_info))
 
             if vw is not None:
                 frame = head_pose_plotter(frame, face_info)
@@ -137,7 +139,8 @@ class HeadPoseEstimation:
             vw.close()
         vr.close()
 
-        write_head_pose(output_path, results)
+        if results:
+            write_head_pose(output_path, results)
 
         return output_path
 

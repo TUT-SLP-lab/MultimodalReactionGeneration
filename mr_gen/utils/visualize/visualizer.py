@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Union, Dict, Tuple
 import cv2
 from mediapipe.python.solutions.drawing_utils import _normalized_to_pixel_coordinates
 from numpy import ndarray
@@ -81,17 +81,30 @@ FACE_OVAL = np.array(
 )
 
 
-def head_pose_plotter(frame: ndarray, head_pose: Optional[FaceAdapter]):
+def head_pose_plotter(
+    frame: ndarray,
+    head_pose: Union[FaceAdapter, Dict[str, ndarray], None],
+    clr: Tuple[int, int, int] = (0, 255, 0),
+):
     if head_pose is None:
         return frame
     shape = frame.shape
 
-    R = angles_to_matrix(head_pose.angle)[0]
+    if isinstance(head_pose, dict):
+        angle = head_pose["angle"]
+        centroid = head_pose["centroid"]
+        face = head_pose["face"]
+    if isinstance(head_pose, FaceAdapter):
+        angle = head_pose.angle
+        centroid = head_pose.centroid
+        face = head_pose.face
+
+    R = angles_to_matrix(angle)[0]
 
     head_direction = np.array([0, 0, 1]) * 200
     head_direction = np.dot(R, head_direction)[:2]
 
-    face = np.dot(R.T, head_pose.face.T).T + head_pose.centroid
+    face = np.dot(R.T, face.T).T + centroid
     nose_2d = face[1][:2]
 
     xy = _normalized_to_pixel_coordinates(nose_2d[0], nose_2d[1], shape[1], shape[0])
@@ -104,6 +117,6 @@ def head_pose_plotter(frame: ndarray, head_pose: Optional[FaceAdapter]):
         res = _normalized_to_pixel_coordinates(x, y, shape[1], shape[0])
         if res is not None:
             x, y = res
-            cv2.circle(frame, (x, y), 1, (0, 255, 0), 1)
+            cv2.circle(frame, (x, y), 1, clr, 1)
 
     return frame
