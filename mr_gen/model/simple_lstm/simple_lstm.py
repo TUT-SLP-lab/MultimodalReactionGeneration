@@ -232,9 +232,8 @@ class SimpleLSTM(pl.LightningModule):
         if self.delta_order == 1:
             return torch.cat([_y, v], dim=-1)
 
-        _vy = y.split(size, dim=-1)[1]
         _vx = x[:, -1:, :].split(size, dim=-1)[1]
-        a = _vy - _vx
+        a = v - _vx
         return torch.cat([_y, v, a], dim=-1)
 
     def training_step(self, batch, *args) -> STEP_OUTPUT:
@@ -258,6 +257,9 @@ class SimpleLSTM(pl.LightningModule):
     def validation_step(self, batch, *args: Any) -> STEP_OUTPUT:
         acoustic_feature, motion_feature, motion_target = batch
         y = self.forward(acoustic_feature, motion_feature)
+
+        if self.all_static:
+            y = self.split_and_form(motion_feature, y)
 
         loss = self.lossfun()(y, motion_target)
         self.log("val_loss", loss, prog_bar=True, logger=True)
