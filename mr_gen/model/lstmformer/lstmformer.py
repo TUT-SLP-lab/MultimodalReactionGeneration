@@ -95,6 +95,20 @@ class Metaformer(pl.LightningModule):
             )
         self.ratio = int(self.ratio)
 
+        # compute integrator context length
+        self.modalities = list(model.modalities)
+        self.other_modalities = list(model.modalities)
+        self.other_modalities.pop(model.main_modal_idx)
+        self.max_context_len = model.max_context_len
+        self.context_len = []
+        for other_modal in self.other_modalities:
+            if other_modal == "audio":
+                self.context_len.append(self.max_context_len * acoustic_fps)
+            elif other_modal == "motion":
+                self.context_len.append(self.max_context_len * pred_fps)
+            else:
+                raise ValueError("invalid modality")
+
         # compute input size of acoustic feature
         self.acoustic_input_size = (model.nmels + 1) * (model.delta_order + 1)
 
@@ -103,7 +117,6 @@ class Metaformer(pl.LightningModule):
         self.motion_input_size = self.motion_base_size * (model.delta_order + 1)
 
         # prepare metaformer configs
-        self.modalities = model.modalities
         self.modal_num = len(model.modalities)
         self.hidden_dim = model.hidden_size
         self.num_block = model.num_block
@@ -133,7 +146,7 @@ class Metaformer(pl.LightningModule):
             add_zero_attn=model.add_zero_attn,
             kdim=self.hidden_dim,
             vdim=self.hidden_dim,
-            max_context_len=model.max_context_len,
+            max_context_len=125,
             num_layerd=model.num_layerd,
             num_internal_layer=model.num_internal_layer,
             nonlinearity=model.nonlinearity,
@@ -161,6 +174,8 @@ class Metaformer(pl.LightningModule):
         self.integrate_mixer_configs = [
             mixer_layerd_argments_select("mha", **self.integrate_mixer_configs)
         ] * (self.modal_num - 1)
+        for i, context_len in enumerate(self.context_len):
+            self.integrate_mixer_configs[i]["max_context_len"] = context_len
         # feedforward configs
         self.feedforward_configs = feedforward_block_argments(
             hidden_size=self.hidden_dim,
@@ -228,12 +243,19 @@ class Metaformer(pl.LightningModule):
         leading_motion_self: InputTypes,
         hxs: Tuple[RNNStateType, List[RNNStateType]] = None,
     ) -> ForwardReturnType:
-        acoustic_partner, _ = acoustic_partner
-        motion_partner, _ = motion_partner
-        motion_self, _ = motion_self
-        leading_acoustic_partner, _ = leading_acoustic_partner
-        leading_motion_partner, _ = leading_motion_partner
-        leading_motion_self, _ = leading_motion_self
+        (acoustic_partner, _) = acoustic_partner
+        (motion_partner, _) = motion_partner
+        (motion_self, _) = motion_self
+        (leading_acoustic_partner, _) = leading_acoustic_partner
+        (leading_motion_partner, _) = leading_motion_partner
+        (leading_motion_self, _) = leading_motion_self
+
+        acoustic_partner = acoustic_partner.to(self.use_devise)
+        motion_partner = motion_partner.to(self.use_devise)
+        motion_self = motion_self.to(self.use_devise)
+        leading_acoustic_partner = leading_acoustic_partner.to(self.use_devise)
+        leading_motion_partner = leading_motion_partner.to(self.use_devise)
+        leading_motion_self = leading_motion_self.to(self.use_devise)
 
         # concat acoustic feature
         acoustic_partner = torch.cat(
@@ -399,7 +421,10 @@ class Metaformer(pl.LightningModule):
         return {"loss": loss}
 
     def prediction(
-        self, batch: List[InputTypes], use_scheduled_sampling: bool = False
+        self,
+        batch: List[InputTypes],
+        use_scheduled_sampling: bool = False,
+        full_generation: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # initialize
         formed_batch, dummy_input, length = self.batch_forming(batch)
@@ -410,10 +435,15 @@ class Metaformer(pl.LightningModule):
 
         # head motion generation
         prediction = self.head_motion_generation(
-            formed_batch, dummy_input, length, cell_state, use_scheduled_sampling
+            formed_batch,
+            dummy_input,
+            length,
+            cell_state,
+            use_scheduled_sampling,
+            full_generation,
         )
 
-        return prediction, target
+        return prediction, target.to(self.device)
 
     def batch_forming(
         self, batch: List[InputTypes]
@@ -436,11 +466,15 @@ class Metaformer(pl.LightningModule):
         length: int,
         cell_state: RNNStateType = None,
         use_scheduled_sampling: bool = False,
+        full_generation: bool = False,
     ):
         if use_scheduled_sampling:
             sampling_mask = torch.rand(length) < (self.current_epoch / self.max_epochs)
         else:
-            sampling_mask = torch.ones(length, dtype=torch.bool)
+            if full_generation:
+                sampling_mask = torch.ones(length, dtype=torch.bool)
+            else:
+                sampling_mask = torch.zeros(length, dtype=torch.bool)
 
         motion_s = formed_batch[2][0]
         y = motion_s[0]
@@ -488,13 +522,13 @@ class Metaformer(pl.LightningModule):
         batch_size: int = motion_p.shape[0]
 
         # [batch_size, seq_len*self.ratio, feature_dim] -> [seq_len, batch_size, self.ratio, feature_dim]
-        fbank: torch.Tensor
+        fbank: torch.Tensor = fbank.to(self.device)
         fbank = fbank.view(batch_size, length, self.ratio, fbank.shape[-1])
         fbank = fbank.transpose(0, 1).contiguous()
         # [batch_size, seq_len, feature_dim] -> [seq_len, batch_size, 1, feature_dim]
-        motion_p: torch.Tensor
+        motion_p: torch.Tensor = motion_p.to(self.device)
         motion_p = motion_p.transpose(0, 1).unsqueeze(2).contiguous()
-        motion_s: torch.Tensor
+        motion_s: torch.Tensor = motion_s.to(self.device)
         motion_s = motion_s.transpose(0, 1).unsqueeze(2).contiguous()
 
         return [(fbank, lf), (motion_p, lp), (motion_s, ls)], length

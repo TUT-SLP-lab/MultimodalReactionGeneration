@@ -85,6 +85,7 @@ def head_pose_plotter(
     frame: ndarray,
     head_pose: Union[FaceAdapter, Dict[str, ndarray], None],
     clr: Tuple[int, int, int] = (0, 255, 0),
+    clr_sub: Tuple[int, int, int] = (0, 0, 255),
 ):
     if head_pose is None:
         return frame
@@ -111,7 +112,7 @@ def head_pose_plotter(
     if xy is not None:
         start_p = np.array((xy[0], xy[1]))
         stop_p = start_p + head_direction.astype(np.int32)
-        cv2.line(frame, start_p, stop_p, (0, 0, 255), 3)
+        cv2.line(frame, start_p, stop_p, clr_sub, 3)
 
     for x, y, _ in face:
         res = _normalized_to_pixel_coordinates(x, y, shape[1], shape[0])

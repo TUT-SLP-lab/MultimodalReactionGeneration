@@ -328,7 +328,10 @@ class LSTMwithSample(pl.LightningModule):
         return {"loss": loss}
 
     def prediction(
-        self, batch: List[InputTypes], use_scheduled_sampling: bool = False
+        self,
+        batch: List[InputTypes],
+        use_scheduled_sampling: bool = False,
+        full_generation: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # initialize
         formed_batch, dummy_input, length = self.batch_forming(batch)
@@ -339,7 +342,12 @@ class LSTMwithSample(pl.LightningModule):
 
         # head motion generation
         prediction = self.head_motion_generation(
-            formed_batch, dummy_input, length, cell_state, use_scheduled_sampling
+            formed_batch,
+            dummy_input,
+            length,
+            cell_state,
+            use_scheduled_sampling,
+            full_generation,
         )
 
         return prediction, target
@@ -365,11 +373,15 @@ class LSTMwithSample(pl.LightningModule):
         length: int,
         cell_state: RNNStateType = None,
         use_scheduled_sampling: bool = False,
+        full_generation: bool = False,
     ):
         if use_scheduled_sampling:
             sampling_mask = torch.rand(length) < (self.current_epoch / self.max_epochs)
         else:
-            sampling_mask = torch.ones(length, dtype=torch.bool)
+            if full_generation:
+                sampling_mask = torch.ones(length, dtype=torch.bool)
+            else:
+                sampling_mask = torch.zeros(length, dtype=torch.bool)
 
         motion_s = formed_batch[2][0]
         y = motion_s[0]

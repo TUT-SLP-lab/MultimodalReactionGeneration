@@ -66,7 +66,7 @@ model:
     num_heads: 4
     add_bias_kv: False
     add_zero_attn: False
-    max_context_len: 125
+    max_context_len: 10 # [s]
 
     # mlp config
     # ...
@@ -80,10 +80,10 @@ model:
     sampling_rate: ${sample_rate}
     shift: ${shift}
     pred_fps: ${motion.pred_fps}
-    modalities:
-        - audio_partner
-        - motion_partner
-        - motion_self
+    modalities: # motion, audio
+        - audio
+        - motion
+        - motion
     use_centroid: ${use_centroid}
     use_angle: ${use_angle}
     nmels: ${nmels}
