@@ -20,8 +20,18 @@ class ResidualConnection(pl.LightningModule):
     def forward(self, x, *args, **kwargs):
         y = self.module(x, *args, **kwargs)
 
+        # for LSTM, and so on
+        others = None
+        if isinstance(y, (tuple, list)):
+            others = y[1:]
+            y = y[0]
+
         y = y + x
         if self.layer_norm is not None:
             y = self.layer_norm(y)
         y = self.dropout(y)
+
+        if others is not None:
+            y = (y, *others)
+
         return y

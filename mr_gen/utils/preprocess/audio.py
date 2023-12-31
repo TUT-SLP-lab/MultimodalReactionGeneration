@@ -33,6 +33,8 @@ class AudioPreprocessor:
         fbank = torch.cat([fbank, power.unsqueeze(0)], dim=0).T.to(torch.float32)
 
         fbank_with_delta = self.compute_delta(fbank)
+        msg = f"start: {start}, end: {end}, stride: {1}"
+        assert len(fbank_with_delta) != 0, msg
 
         return fbank_with_delta
 

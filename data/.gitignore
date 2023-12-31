@@ -13,6 +13,7 @@ multimodal_dialogue*/**/*
 irregular*/**/*
 temp/**/*
 !temp/.gitkeep
+!temp/utterance_section/.gitkeep
 
 
 !anomaly_search_result.json

@@ -1,6 +1,6 @@
 from typing import Union, List, Dict, Callable, Optional
 import dfcon
-from dfcon.filters import Filter, EmpFilter
+from cmpfilter import Filter, EmpFilter
 from dfcon.path_filter import FileFilter
 
 

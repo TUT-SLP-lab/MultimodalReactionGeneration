@@ -116,10 +116,10 @@ class DataBuilder(DataBuildData):
         # build directory structure
         ffilter = FileFilter().include_extention(["wav"])
         ffilter = ffilter.contained(["host", "comp"])
-        direc = Directory(self.data_dir).build_structure(ffilter)
+        direc = Directory(self.data_dir)
 
         # collect wav file path
-        self.wav_list = direc.get_file_path(serialize=True)
+        self.wav_list = direc.get_file_path(ffilter)
 
         self.logger.info("Start build data.")
         self.build()

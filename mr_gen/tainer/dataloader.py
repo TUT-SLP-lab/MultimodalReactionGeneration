@@ -9,20 +9,22 @@ from torch.utils.data import DataLoader, Dataset, random_split
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
 
-from mr_gen.databuild import DataBuilder
-from mr_gen.utils.preprocess import AudioPreprocessor, MotionPreprocessor
+from mr_gen.databuild import DataBuilderNX
+from mr_gen.utils.preprocess import AudioPreprocessor, MotionPreprocessorNX
 
 
-class HeadMotionDataset(Dataset):
-    def __init__(self, dataset_path: str, cfg: DictConfig, audio: DictConfig) -> None:
+class HeadMotionDatasetNX(Dataset):
+    def __init__(
+        self, dataset_path: str, motion: DictConfig, audio: DictConfig
+    ) -> None:
         super().__init__()
         self.dataset_path = dataset_path
         self.data_list = self.load_segment_list()
-        self.cfg = cfg
+        self.motion = motion
         self.audio = audio
 
         self.audio_preprocessor = AudioPreprocessor(audio)
-        self.motion_preprocessor = MotionPreprocessor(cfg)
+        self.motion_preprocessor = MotionPreprocessorNX(motion)
 
     def __getitem__(self, index: int):
         jdic_path = self.data_list[index]
@@ -32,13 +34,61 @@ class HeadMotionDataset(Dataset):
                     raise ValueError("json file must have only one line.")
                 jdic = json.loads(line)
 
-        fbank = self.audio_preprocessor(
-            jdic["wav_file"], jdic["audio"]["start"], jdic["audio"]["end"]
-        )
-        motion_context = self.motion_preprocessor(jdic["head_dir"], **jdic["context"])
-        motion_target = self.motion_preprocessor(jdic["head_dir"], **jdic["target"])
+        partner_motion = jdic["partner_motion"]
+        partner_audio = jdic["partner_audio"]
+        self_motion = jdic["self_motion"]
+        target = jdic["target"]
 
-        return fbank, motion_context, motion_target
+        # load main data
+        fbank_partner = self.audio_preprocessor(
+            partner_audio["path"],
+            partner_audio["seq"]["start"],
+            partner_audio["seq"]["end"],
+        )
+        motion_partner = self.motion_preprocessor(
+            partner_motion["path"],
+            partner_motion["seq"]["start"],
+            partner_motion["seq"]["end"],
+            partner_motion["seq"]["stride"],
+        )
+        motion_self = self.motion_preprocessor(
+            self_motion["path"],
+            self_motion["seq"]["start"],
+            self_motion["seq"]["end"],
+            self_motion["seq"]["stride"],
+        )
+
+        # load leading data
+        leading_fbank_partner = self.audio_preprocessor(
+            partner_audio["path"],
+            partner_audio["lead"]["start"],
+            partner_audio["lead"]["end"],
+        )
+        leading_motion_partner = self.motion_preprocessor(
+            partner_motion["path"],
+            partner_motion["lead"]["start"],
+            partner_motion["lead"]["end"],
+            partner_motion["lead"]["stride"],
+        )
+        leading_motion_self = self.motion_preprocessor(
+            self_motion["path"],
+            self_motion["lead"]["start"],
+            self_motion["lead"]["end"],
+            self_motion["lead"]["stride"],
+        )
+
+        target = motion_self[target["shift"] :]
+        motion_self = motion_self[: len(motion_self) - target["shift"]]
+
+        return (
+            fbank_partner,
+            motion_partner,
+            motion_self,
+            leading_fbank_partner,
+            leading_motion_partner,
+            leading_motion_self,
+            target,
+        )
 
     def __len__(self) -> int:
         return len(self.data_list)
@@ -54,26 +104,31 @@ class HeadMotionDataset(Dataset):
 
 
 def collate_fn(batch):
-    fbank, motion_context, motion_target = zip(*batch)
-    fbank = torch.stack(fbank, dim=0)
-    motion_context = torch.stack(motion_context, dim=0)
-    motion_target = torch.stack(motion_target, dim=0)
-    return fbank, motion_context, motion_target
+    # fbank, motion_context, motion_target = zip(*batch)
+    modals = zip(*batch)
+    modals = [torch.stack(modal, dim=0) for modal in modals]
+    return modals
 
 
-class HeadMotionDataModule(pl.LightningDataModule):
+class HeadMotionDataModuleNX(pl.LightningDataModule):
     def __init__(
-        self, cfg: DictConfig, exp: DictConfig, audio: DictConfig, logger: Logger
+        self,
+        data: DictConfig,
+        exp: DictConfig,
+        audio: DictConfig,
+        motion: DictConfig,
+        logger: Logger,
     ) -> None:
         super().__init__()
-        self.data_dir = cfg.data_dir
+        self.data_dir = data.data_dir
         self.batch_size = exp.batch_size
         self.train_rate = exp.train_rate
         self.valid_rate = exp.valid_rate
 
-        self.cfg = cfg
+        self.data = data
         self.exp = exp
         self.audio = audio
+        self.motion = motion
         self.logger = logger
 
         self.dataset_path: str
@@ -81,15 +136,15 @@ class HeadMotionDataModule(pl.LightningDataModule):
         self.valid_size: int
         self.test_size: int
 
-        self.dataset: HeadMotionDataset
+        self.dataset: HeadMotionDatasetNX
         self.train_dataset: Dataset
         self.val_dataset: Dataset
         self.test_dataset: Dataset
 
     def setup(self, stage: Optional[str] = None) -> None:
-        self.dataset_path = DataBuilder(self.cfg, self.logger).data_site
+        self.dataset_path = DataBuilderNX(self.data, self.logger).data_site
 
-        self.dataset = HeadMotionDataset(self.dataset_path, self.cfg, self.audio)
+        self.dataset = HeadMotionDatasetNX(self.dataset_path, self.motion, self.audio)
         self.train_size = int(self.train_rate * len(self.dataset))
         self.valid_size = int(self.valid_rate * len(self.dataset))
         self.test_size = len(self.dataset) - self.train_size - self.valid_size

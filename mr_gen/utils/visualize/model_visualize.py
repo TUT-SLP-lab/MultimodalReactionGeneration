@@ -121,8 +121,9 @@ def gen_head_motion(
     """
     base_name = os.path.split(os.path.dirname(movie_path))[1]
     file_base_name = os.path.splitext(os.path.basename(movie_path))[0]
+    target_base_name = "comp" if file_base_name == "host" else "host"
     head_out_path = os.path.join(
-        VISUALIZE_PATH, base_name, file_base_name, file_base_name + ".head"
+        VISUALIZE_PATH, base_name, target_base_name, target_base_name + ".head"
     )  # ex. ./data/visualize/data004/comp/comp.head
     head_dir = os.path.dirname(head_out_path)
 
