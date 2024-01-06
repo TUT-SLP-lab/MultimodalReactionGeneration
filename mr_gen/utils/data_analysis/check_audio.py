@@ -48,14 +48,16 @@ class AudioFilter(Filter):
 
 def collect_wav_path(target: str, **_kwargs):
     ff = FileFilter().include_extention("wav")
-    dirc = Directory(target).build_structure(ff)
-    wav_list = dirc.get_file_path(serialize=True)
+    dirc = Directory(target)
+    wav_list = dirc.get_file_path(ff)
 
     af = AudioFilter()
     corrects = []
     incorrects = []
 
     for wav in tqdm(wav_list):
+        if "001" in wav:
+            input(wav)
         res = af(wav)
         if res == {}:
             corrects.append(wav)
@@ -67,6 +69,10 @@ def collect_wav_path(target: str, **_kwargs):
 
 if __name__ == "__main__":
     _args = get_args()
+
+    if not os.path.exists(_args.output):
+        os.makedirs(_args.output)
+
     result = collect_wav_path(_args.target)
 
     correct_path = os.path.join(_args.output, "corrects.log")

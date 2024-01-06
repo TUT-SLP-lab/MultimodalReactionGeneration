@@ -6,6 +6,7 @@ import hydra
 import numpy as np
 from numpy import ndarray
 from PIL import Image
+from matplotlib import pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
@@ -29,6 +30,9 @@ VIDEO_BASE_PATH = "./data/visualize_move_video"
 
 FACE_W = 300
 HEAD_OFFSET = -10
+
+plt.rcParams["font.size"] = 30
+plt.rcParams["font.family"] = "Times New Roman"
 
 
 def setup_dataloader(
@@ -103,7 +107,7 @@ def generation_step(batch, model: Union[LSTMwithSample, Metaformer], model_name:
     st_info = motion_self[1]
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-    a_mean = torch.tensor(st_info["angle_mean"]).unsqueeze(0).unsqueeze(0).to(device)
+    # a_mean = torch.tensor(st_info["angle_mean"]).unsqueeze(0).unsqueeze(0).to(device)
     a_std = torch.tensor(st_info["angle_std"]).unsqueeze(0).unsqueeze(0).to(device)
     c_mean = torch.tensor(st_info["centroid_mean"]).unsqueeze(0).unsqueeze(0).to(device)
     c_std = torch.tensor(st_info["centroid_std"]).unsqueeze(0).unsqueeze(0).to(device)
@@ -115,12 +119,15 @@ def generation_step(batch, model: Union[LSTMwithSample, Metaformer], model_name:
         )
         end_time = time.time()
 
+    if not os.path.isdir(os.path.join(VISUALIZE_PATH, model_name)):
+        os.makedirs(os.path.join(VISUALIZE_PATH, model_name))
+
     speed_path = os.path.join(VISUALIZE_PATH, model_name, "speed.log")
     with open(speed_path, "a", encoding="utf-8") as f:
         f.write(f"{end_time - start_time}\n")
 
-    pred_angle = prediction[:, :, :3] * a_std + a_mean
-    trgt_angle = target[:, :, :3] * a_std + a_mean
+    pred_angle = prediction[:, :, :3] * a_std
+    trgt_angle = target[:, :, :3] * a_std
     pred_centd = prediction[:, :, 3:6] * c_std + c_mean
     trgt_centd = target[:, :, 3:6] * c_std + c_mean
 
@@ -226,6 +233,9 @@ def gen_head_motion(
         statics = []
         t_statics = []
 
+        nod = []
+        t_nod = []
+
         for i, (centd, angle, t_centd, t_angle) in enumerate(zip(*results)):
             # tensor to ndarray
             centd: ndarray = centd.cpu().numpy()
@@ -264,11 +274,17 @@ def gen_head_motion(
                     t_statics, t_centd, t_angle, face, black_board, (170, 170, 170)
                 )
 
+            nod.append((angle[0], i / data_conf.pred_fps))
+            t_nod.append((t_angle[0], i / data_conf.pred_fps))
+
         # close video reader / writer
         video_reader.close()
         video_writer.close()
 
         patch_mp4_path = output_path.rsplit(".", maxsplit=1)[0] + "_patched.mp4"
+
+        nod = [n for n in zip(*nod)]
+        t_nod = [n for n in zip(*t_nod)]
 
         # patch audio
         cat_audio(
@@ -292,9 +308,68 @@ def gen_head_motion(
                 os.path.join(output_path_dir, f"t_static_{i//8}.png")
             )
 
+        nod_max, nod_min = max(nod[0]), min(nod[0])
+        t_nod_max, t_nod_min = max(t_nod[0]), min(t_nod[0])
+
+        print(f"nod_max: {nod_max}, nod_min: {nod_min}")
+        print(f"t_nod_max: {t_nod_max}, t_nod_min: {t_nod_min}")
+        print(f"nod_max - nod_min: {nod_max - nod_min}")
+        print(f"t_nod_max - t_nod_min: {t_nod_max - t_nod_min}")
+        print(f"nod ratio: {(nod_max - nod_min) / (t_nod_max - t_nod_min)}")
+
+        len_5s = int(5 * data_conf.pred_fps)
+        start = 0
+        for i in range(0, len(nod[0]), len_5s):
+            if len(nod[1][i:]) == 1:
+                break
+            # 2 subplot nod motion
+            fig = plt.figure(figsize=(21, 9))
+            ax1, ax2 = fig.subplots(2, 1)
+            ax1.set_title("Grand Truth")
+            ax1.set_xlim(start, start + 5)
+            # ax1.set_xlabel("time [s]")
+            # ax1.set_ylabel("pitch [rad]")
+            ax1.plot(
+                t_nod[1][i : i + len_5s + 1],
+                t_nod[0][i : i + len_5s + 1],
+                color="dimgrey",
+                label="Ground Truth",
+            )
+            ax2.set_title("Predicted")
+            ax2.set_xlim(start, start + 5)
+            # ax2.set_xlabel("time [s]")
+            # ax2.set_ylabel("pitch [rad]")
+            ax2.plot(
+                nod[1][i : i + len_5s + 1],
+                nod[0][i : i + len_5s + 1],
+                color="green",
+                label="Predicted",
+            )
+
+            plt.subplots_adjust(hspace=0.4)
+            fig.supxlabel("time [s]")
+            fig.supylabel("pitch [deg]", y=0.5, x=0.06)
+
+            plt.savefig(
+                os.path.join(output_path_dir, f"nod_{i//len_5s}.pdf"),
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+            plt.savefig(
+                os.path.join(output_path_dir, f"nod_{i//len_5s}.png"),
+                bbox_inches="tight",
+                pad_inches=0.05,
+            )
+            plt.clf()
+            start += 5
+
 
 @hydra.main(version_base=None, config_path="./")
 def main(cfg: DictConfig = None):
+    speed_path = os.path.join(VISUALIZE_PATH, cfg.model_type, "speed.log")
+    with open(speed_path, "w", encoding="utf-8") as f:
+        f.write("")
+
     gen_head_motion(
         cfg.model_type,
         cfg.model_path,

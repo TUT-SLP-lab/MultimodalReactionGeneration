@@ -101,6 +101,8 @@ class LSTMwithSample(pl.LightningModule):
             bidirectional=False,
         )
 
+        self.use_device = "cuda" if torch.cuda.is_available() else "cpu"
+
         self.feature_projection = nn.Linear(prediction_input_size, model.hidden_size)
 
         self.layerd_lstm = LSTMLayerd(
@@ -162,6 +164,13 @@ class LSTMwithSample(pl.LightningModule):
         leading_acoustic_partner, _ = leading_acoustic_partner
         leading_motion_partner, _ = leading_motion_partner
         leading_motion_self, _ = leading_motion_self
+
+        acoustic_partner = acoustic_partner.to(self.use_device)
+        motion_partner = motion_partner.to(self.use_device)
+        motion_self = motion_self.to(self.use_device)
+        leading_acoustic_partner = leading_acoustic_partner.to(self.use_device)
+        leading_motion_partner = leading_motion_partner.to(self.use_device)
+        leading_motion_self = leading_motion_self.to(self.use_device)
 
         # set cell state
         if cell_state is None:
@@ -336,6 +345,7 @@ class LSTMwithSample(pl.LightningModule):
         # initialize
         formed_batch, dummy_input, length = self.batch_forming(batch)
         target, _ = batch[-1]
+        target = target.to(self.device)
 
         # warmup model
         cell_state = self.warmup_model(dummy_input, batch)
@@ -385,7 +395,7 @@ class LSTMwithSample(pl.LightningModule):
 
         motion_s = formed_batch[2][0]
         y = motion_s[0]
-        prediction = y.clone()
+        prediction = y.clone().to(self.device)
         for step, mask in enumerate(sampling_mask):
             y, cell_state = self.generate_one_step(
                 step, formed_batch, y, dummy_input, cell_state

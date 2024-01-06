@@ -122,7 +122,7 @@ class Metaformer(pl.LightningModule):
         self.num_block = model.num_block
         self.num_heads = model.num_heads
 
-        self.main_mixer_type = model.emb_mixers[model.main_modal_idx]
+        self.main_mixer_type: str = model.emb_mixers[model.main_modal_idx]
         self.other_mixer_type: list = list(model.emb_mixers)
         self.other_mixer_type.pop(model.main_modal_idx)
 
@@ -130,7 +130,7 @@ class Metaformer(pl.LightningModule):
         self.interlayer_residual = model.interlayer_residual
         self.interlayer_residual_norm = model.interlayer_residual_norm
 
-        self.use_devise = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.use_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.common_configs = dict(
             hidden_size=self.hidden_dim,
@@ -154,7 +154,7 @@ class Metaformer(pl.LightningModule):
             residual=model.residual,
             residual_layer_norm=model.residual_layer_norm,
             bias=model.bias,
-            device=self.use_devise,
+            device=self.use_device,
         )
 
         # architecture
@@ -184,7 +184,7 @@ class Metaformer(pl.LightningModule):
             residual=model.residual,
             residual_layer_norm=model.residual_layer_norm,
             bias=model.bias,
-            device=self.use_devise,
+            device=self.use_device,
         )
         # output feedforward configs
         self.output_feedforward_configs = feedforward_block_argments(
@@ -194,7 +194,7 @@ class Metaformer(pl.LightningModule):
             nonlinearity=model.ffn_nonlinearity,
             residual=False,
             bias=model.bias,
-            device=self.use_devise,
+            device=self.use_device,
         )
         self.metaformer = MultiModalMetaformer(
             modal_num=self.modal_num,
@@ -250,12 +250,12 @@ class Metaformer(pl.LightningModule):
         (leading_motion_partner, _) = leading_motion_partner
         (leading_motion_self, _) = leading_motion_self
 
-        acoustic_partner = acoustic_partner.to(self.use_devise)
-        motion_partner = motion_partner.to(self.use_devise)
-        motion_self = motion_self.to(self.use_devise)
-        leading_acoustic_partner = leading_acoustic_partner.to(self.use_devise)
-        leading_motion_partner = leading_motion_partner.to(self.use_devise)
-        leading_motion_self = leading_motion_self.to(self.use_devise)
+        acoustic_partner = acoustic_partner.to(self.device)
+        motion_partner = motion_partner.to(self.device)
+        motion_self = motion_self.to(self.device)
+        leading_acoustic_partner = leading_acoustic_partner.to(self.device)
+        leading_motion_partner = leading_motion_partner.to(self.device)
+        leading_motion_self = leading_motion_self.to(self.device)
 
         # concat acoustic feature
         acoustic_partner = torch.cat(
@@ -280,11 +280,11 @@ class Metaformer(pl.LightningModule):
             ac_self_attention_mask = gen_attention_mask(
                 acoustic_partner, acoustic_partner, self.num_heads, PADDING_VALUE
             ).view(-1, acoustic_partner.shape[1], acoustic_partner.shape[1])
-        if self.main_mixer_type[1] == "mha":
+        if self.other_mixer_type[1] == "mha":
             mp_self_attention_mask = gen_attention_mask(
                 motion_partner, motion_partner, self.num_heads, PADDING_VALUE
             ).view(-1, motion_len, motion_len)
-        if self.main_mixer_type[2] == "mha":
+        if self.main_mixer_type == "mha":
             ms_self_attention_mask = gen_attention_mask(
                 motion_self, motion_self, self.num_heads, PADDING_VALUE
             ).view(-1, motion_len, motion_len)
@@ -361,8 +361,11 @@ class Metaformer(pl.LightningModule):
             y, target = self.prediction(batch, use_scheduled_sampling=True)
         else:
             lead_len = batch[4][0].shape[1]
-            y, _ = self.forward(*batch[:-1])
             target, _ = batch[-1]
+            mask = (batch[2][0] != PADDING_VALUE).int()
+            batch[2] = (batch[2][0] * mask, batch[2][1])
+
+            y, _ = self.forward(*batch[:-1])
             y = y[:, lead_len:]
             del _
 
@@ -427,8 +430,9 @@ class Metaformer(pl.LightningModule):
         full_generation: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # initialize
-        formed_batch, dummy_input, length = self.batch_forming(batch)
+        formed_batch, dummy_input, length, mask = self.batch_forming(batch)
         target, _ = batch[-1]
+        target = target * mask
 
         # warmup model
         cell_state = self.warmup_model(dummy_input, batch)
@@ -449,10 +453,10 @@ class Metaformer(pl.LightningModule):
         self, batch: List[InputTypes]
     ) -> Tuple[List[InputTypes], List[InputTypes], int]:
         """form batch for training"""
-        formed_batch, length = self.form_generation_init(batch)
+        formed_batch, length, mask = self.form_generation_init(batch)
         dummy_input = self.gen_dummy_input(batch)
 
-        return formed_batch, dummy_input, length
+        return formed_batch, dummy_input, length, mask
 
     def warmup_model(self, dummy_input: List[InputTypes], batch: List[InputTypes]):
         """warmup model"""
@@ -478,7 +482,8 @@ class Metaformer(pl.LightningModule):
 
         motion_s = formed_batch[2][0]
         y = motion_s[0]
-        prediction = y.clone()
+        prediction = y
+
         for step, mask in enumerate(sampling_mask):
             y, cell_state = self.generate_one_step(
                 step, formed_batch, y, dummy_input, cell_state
@@ -531,7 +536,15 @@ class Metaformer(pl.LightningModule):
         motion_s: torch.Tensor = motion_s.to(self.device)
         motion_s = motion_s.transpose(0, 1).unsqueeze(2).contiguous()
 
-        return [(fbank, lf), (motion_p, lp), (motion_s, ls)], length
+        fbank_mask = (fbank != PADDING_VALUE).int()
+        motion_p_mask = (motion_p != PADDING_VALUE).int()
+        motion_s_mask = (motion_s != PADDING_VALUE).int()
+
+        fbank = fbank * fbank_mask
+        motion_p = motion_p * motion_p_mask
+        motion_s = motion_s * motion_s_mask
+
+        return [(fbank, lf), (motion_p, lp), (motion_s, ls)], length, motion_s_mask
 
     def gen_dummy_input(self, batch) -> List[InputTypes]:
         """create dummy input for generation (for sequence length)"""

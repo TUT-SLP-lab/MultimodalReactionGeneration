@@ -5,6 +5,7 @@
 */**/*.json
 */**/*.head
 */**/*.seg
+*/**/*.pdf
 
 *.zst
 *.zip
